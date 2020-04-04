@@ -1,0 +1,7 @@
+apiVersion: kubeflow.org/v1
+kind: Profile
+metadata:
+  name: example-profile
+spec:
+  deploymentName: example-profile
+  replicas: 1
