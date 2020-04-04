@@ -21,27 +21,27 @@ import (
 	"fmt"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	appsinformers "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	appslisters "k8s.io/client-go/listers/apps/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
 	kubeflowv1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
+	kubeflowv1alpha1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1alpha1"
 	clientset "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned"
 	kubeflowscheme "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/scheme"
 	informers "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1"
+	v1alpha1informers "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1alpha1"
 	listers "k8s.io/kubeflow-controller/pkg/generated/listers/kubeflowcontroller/v1"
+	v1alpha1listers "k8s.io/kubeflow-controller/pkg/generated/listers/kubeflowcontroller/v1alpha1"
 )
 
 const controllerAgentName = "kubeflow-controller"
@@ -68,8 +68,8 @@ type Controller struct {
 	// kubeflowclientset is a clientset for our own API group
 	kubeflowclientset clientset.Interface
 
-	deploymentsLister appslisters.DeploymentLister
-	deploymentsSynced cache.InformerSynced
+	podDefaultsLister v1alpha1listers.PodDefaultLister
+	podDefaultsSynced cache.InformerSynced
 	profilesLister    listers.ProfileLister
 	profilesSynced    cache.InformerSynced
 
@@ -88,7 +88,7 @@ type Controller struct {
 func NewController(
 	kubeclientset kubernetes.Interface,
 	kubeflowclientset clientset.Interface,
-	deploymentInformer appsinformers.DeploymentInformer,
+	podDefaultInformer v1alpha1informers.PodDefaultInformer,
 	profileInformer informers.ProfileInformer) *Controller {
 
 	// Create event broadcaster
@@ -104,8 +104,8 @@ func NewController(
 	controller := &Controller{
 		kubeclientset:     kubeclientset,
 		kubeflowclientset: kubeflowclientset,
-		deploymentsLister: deploymentInformer.Lister(),
-		deploymentsSynced: deploymentInformer.Informer().HasSynced,
+		podDefaultsLister: podDefaultInformer.Lister(),
+		podDefaultsSynced: podDefaultInformer.Informer().HasSynced,
 		profilesLister:    profileInformer.Lister(),
 		profilesSynced:    profileInformer.Informer().HasSynced,
 		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Profiles"),
@@ -120,18 +120,19 @@ func NewController(
 			controller.enqueueProfile(new)
 		},
 	})
-	// Set up an event handler for when Deployment resources change. This
-	// handler will lookup the owner of the given Deployment, and if it is
+
+	// Set up an event handler for when PodDefault resources change. This
+	// handler will lookup the owner of the given PodDefault, and if it is
 	// owned by a Profile resource will enqueue that Profile resource for
 	// processing. This way, we don't need to implement custom logic for
-	// handling Deployment resources. More info on this pattern:
+	// handling PodDefault resources. More info on this pattern:
 	// https://github.com/kubernetes/community/blob/8cafef897a22026d42f5e5bb3f104febe7e29830/contributors/devel/controllers.md
-	deploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	podDefaultInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.handleObject,
 		UpdateFunc: func(old, new interface{}) {
-			newDepl := new.(*appsv1.Deployment)
-			oldDepl := old.(*appsv1.Deployment)
-			if newDepl.ResourceVersion == oldDepl.ResourceVersion {
+			newPD := new.(*kubeflowv1alpha1.PodDefault)
+			oldPD := old.(*kubeflowv1alpha1.PodDefault)
+			if newPD.ResourceVersion == oldPD.ResourceVersion {
 				// Periodic resync will send update events for all known Deployments.
 				// Two different versions of the same Deployment will always have different RVs.
 				return
@@ -157,7 +158,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.deploymentsSynced, c.profilesSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.podDefaultsSynced, c.profilesSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -241,15 +242,8 @@ func (c *Controller) processNextWorkItem() bool {
 // converge the two. It then updates the Status block of the Profile resource
 // with the current status of the resource.
 func (c *Controller) syncHandler(key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
-		return nil
-	}
-
 	// Get the Profile resource with this namespace/name
-	profile, err := c.profilesLister.Profiles(namespace).Get(name)
+	profile, err := c.profilesLister.Get(key)
 	if err != nil {
 		// The Profile resource may no longer exist, in which case we stop
 		// processing.
@@ -261,20 +255,20 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	deploymentName := profile.Spec.DeploymentName
-	if deploymentName == "" {
+	podDefaultName := profile.Name
+	if podDefaultName == "" {
 		// We choose to absorb the error here as the worker would requeue the
 		// resource otherwise. Instead, the next time the resource is updated
 		// the resource will be queued again.
-		utilruntime.HandleError(fmt.Errorf("%s: deployment name must be specified", key))
+		utilruntime.HandleError(fmt.Errorf("%s: PodDefault name must be specified", key))
 		return nil
 	}
 
-	// Get the deployment with the name specified in Profile.spec
-	deployment, err := c.deploymentsLister.Deployments(profile.Namespace).Get(deploymentName)
+	// Get the PodDefault with the name specified in Profile.spec
+	podDefault, err := c.podDefaultsLister.PodDefaults(profile.Name).Get(podDefaultName)
 	// If the resource doesn't exist, we'll create it
 	if errors.IsNotFound(err) {
-		deployment, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Create(context.TODO(), newPodDefault(profile), metav1.CreateOptions{})
+		podDefault, err = c.kubeflowclientset.KubeflowV1alpha1().PodDefaults(profile.Name).Create(context.TODO(), newPodDefault(profile), metav1.CreateOptions{})
 	}
 
 	// If an error occurs during Get/Create, we'll requeue the item so we can
@@ -286,19 +280,21 @@ func (c *Controller) syncHandler(key string) error {
 
 	// If the Deployment is not controlled by this Profile resource, we should log
 	// a warning to the event recorder and return error msg.
-	if !metav1.IsControlledBy(deployment, profile) {
-		msg := fmt.Sprintf(MessageResourceExists, deployment.Name)
+	if !metav1.IsControlledBy(podDefault, profile) {
+		msg := fmt.Sprintf(MessageResourceExists, podDefault.Name)
 		c.recorder.Event(profile, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return fmt.Errorf(msg)
 	}
 
+	// TODO: LOGIC TO COMPARE THE PODDEFAULTS AGAINST EXPECTED STATE.
+	//
 	// If this number of the replicas on the Profile resource is specified, and the
 	// number does not equal the current desired replicas on the Deployment, we
 	// should update the Deployment resource.
-	if profile.Spec.Replicas != nil && *profile.Spec.Replicas != *deployment.Spec.Replicas {
-		klog.V(4).Infof("Profile %s replicas: %d, deployment replicas: %d", name, *profile.Spec.Replicas, *deployment.Spec.Replicas)
-		deployment, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newPodDefault(profile), metav1.UpdateOptions{})
-	}
+	// if profile.Spec.Replicas != nil && *profile.Spec.Replicas != *deployment.Spec.Replicas {
+	// 	klog.V(4).Infof("Profile %s replicas: %d, deployment replicas: %d", name, *profile.Spec.Replicas, *deployment.Spec.Replicas)
+	// 	podDefault, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newPodDefault(profile), metav1.UpdateOptions{})
+	// }
 
 	// If an error occurs during Update, we'll requeue the item so we can
 	// attempt processing again later. This could have been caused by a
@@ -309,7 +305,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Finally, we update the status block of the Profile resource to reflect the
 	// current state of the world
-	err = c.updateProfileStatus(profile, deployment)
+	err = c.updateProfileStatus(profile, podDefault)
 	if err != nil {
 		return err
 	}
@@ -318,17 +314,16 @@ func (c *Controller) syncHandler(key string) error {
 	return nil
 }
 
-func (c *Controller) updateProfileStatus(profile *kubeflowv1.Profile, deployment *appsv1.Deployment) error {
+func (c *Controller) updateProfileStatus(profile *kubeflowv1.Profile, podDefault *kubeflowv1alpha1.PodDefault) error {
 	// NEVER modify objects from the store. It's a read-only, local cache.
 	// You can use DeepCopy() to make a deep copy of original object and modify this copy
 	// Or create a copy manually for better performance
 	profileCopy := profile.DeepCopy()
-	profileCopy.Status.AvailableReplicas = deployment.Status.AvailableReplicas
 	// If the CustomResourceSubresources feature gate is not enabled,
 	// we must use Update instead of UpdateStatus to update the Status block of the Profile resource.
 	// UpdateStatus will not allow changes to the Spec of the resource,
 	// which is ideal for ensuring nothing other than resource status has been updated.
-	_, err := c.kubeflowclientset.KubeflowV1().Profiles(profile.Namespace).Update(context.TODO(), profileCopy, metav1.UpdateOptions{})
+	_, err := c.kubeflowclientset.KubeflowV1().Profiles().Update(context.TODO(), profileCopy, metav1.UpdateOptions{})
 	return err
 }
 
@@ -374,7 +369,7 @@ func (c *Controller) handleObject(obj interface{}) {
 			return
 		}
 
-		profile, err := c.profilesLister.Profiles(object.GetNamespace()).Get(ownerRef.Name)
+		profile, err := c.profilesLister.Get(ownerRef.Name)
 		if err != nil {
 			klog.V(4).Infof("ignoring orphaned object '%s' of profile '%s'", object.GetSelfLink(), ownerRef.Name)
 			return
@@ -388,35 +383,26 @@ func (c *Controller) handleObject(obj interface{}) {
 // newPodDefault creates a new PodDefault for a Profile resource. It also sets
 // the appropriate OwnerReferences on the resource so handleObject can discover
 // the Profile resource that 'owns' it.
-func newPodDefault(profile *kubeflowv1.Profile) *appsv1.Deployment {
-	labels := map[string]string{
-		"app":        "nginx",
-		"controller": profile.Name,
-	}
-	return &appsv1.Deployment{
+func newPodDefault(profile *kubeflowv1.Profile) *kubeflowv1alpha1.PodDefault {
+	return &kubeflowv1alpha1.PodDefault{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      profile.Spec.DeploymentName,
-			Namespace: profile.Namespace,
+			Name:      profile.Name,
+			Namespace: profile.Name,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(profile, kubeflowv1.SchemeGroupVersion.WithKind("Profile")),
 			},
 		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: profile.Spec.Replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+		Spec: kubeflowv1alpha1.PodDefaultSpec{
+			Desc: "Set the WORKSPACE_PORT environment variable to 8888",
+			Selector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"workspace-port": "true",
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "nginx",
-							Image: "nginx:latest",
-						},
-					},
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "WORKSPACE_PORT",
+					Value: "8888",
 				},
 			},
 		},

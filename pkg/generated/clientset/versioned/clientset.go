@@ -25,23 +25,31 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 	kubeflowv1 "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1"
+	kubeflowv1alpha1 "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1alpha1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	KubeflowV1() kubeflowv1.KubeflowV1Interface
+	KubeflowV1alpha1() kubeflowv1alpha1.KubeflowV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	kubeflowV1 *kubeflowv1.KubeflowV1Client
+	kubeflowV1       *kubeflowv1.KubeflowV1Client
+	kubeflowV1alpha1 *kubeflowv1alpha1.KubeflowV1alpha1Client
 }
 
 // KubeflowV1 retrieves the KubeflowV1Client
 func (c *Clientset) KubeflowV1() kubeflowv1.KubeflowV1Interface {
 	return c.kubeflowV1
+}
+
+// KubeflowV1alpha1 retrieves the KubeflowV1alpha1Client
+func (c *Clientset) KubeflowV1alpha1() kubeflowv1alpha1.KubeflowV1alpha1Interface {
+	return c.kubeflowV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -69,6 +77,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.kubeflowV1alpha1, err = kubeflowv1alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -82,6 +94,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.kubeflowV1 = kubeflowv1.NewForConfigOrDie(c)
+	cs.kubeflowV1alpha1 = kubeflowv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -91,6 +104,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.kubeflowV1 = kubeflowv1.New(c)
+	cs.kubeflowV1alpha1 = kubeflowv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

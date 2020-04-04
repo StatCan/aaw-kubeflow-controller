@@ -33,7 +33,6 @@ import (
 // FakeProfiles implements ProfileInterface
 type FakeProfiles struct {
 	Fake *FakeKubeflowV1
-	ns   string
 }
 
 var profilesResource = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "profiles"}
@@ -43,8 +42,7 @@ var profilesKind = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1",
 // Get takes name of the profile, and returns the corresponding profile object, and an error if there is any.
 func (c *FakeProfiles) Get(ctx context.Context, name string, options v1.GetOptions) (result *kubeflowcontrollerv1.Profile, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(profilesResource, c.ns, name), &kubeflowcontrollerv1.Profile{})
-
+		Invokes(testing.NewRootGetAction(profilesResource, name), &kubeflowcontrollerv1.Profile{})
 	if obj == nil {
 		return nil, err
 	}
@@ -54,8 +52,7 @@ func (c *FakeProfiles) Get(ctx context.Context, name string, options v1.GetOptio
 // List takes label and field selectors, and returns the list of Profiles that match those selectors.
 func (c *FakeProfiles) List(ctx context.Context, opts v1.ListOptions) (result *kubeflowcontrollerv1.ProfileList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(profilesResource, profilesKind, c.ns, opts), &kubeflowcontrollerv1.ProfileList{})
-
+		Invokes(testing.NewRootListAction(profilesResource, profilesKind, opts), &kubeflowcontrollerv1.ProfileList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -76,15 +73,13 @@ func (c *FakeProfiles) List(ctx context.Context, opts v1.ListOptions) (result *k
 // Watch returns a watch.Interface that watches the requested profiles.
 func (c *FakeProfiles) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(profilesResource, c.ns, opts))
-
+		InvokesWatch(testing.NewRootWatchAction(profilesResource, opts))
 }
 
 // Create takes the representation of a profile and creates it.  Returns the server's representation of the profile, and an error, if there is any.
 func (c *FakeProfiles) Create(ctx context.Context, profile *kubeflowcontrollerv1.Profile, opts v1.CreateOptions) (result *kubeflowcontrollerv1.Profile, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(profilesResource, c.ns, profile), &kubeflowcontrollerv1.Profile{})
-
+		Invokes(testing.NewRootCreateAction(profilesResource, profile), &kubeflowcontrollerv1.Profile{})
 	if obj == nil {
 		return nil, err
 	}
@@ -94,8 +89,7 @@ func (c *FakeProfiles) Create(ctx context.Context, profile *kubeflowcontrollerv1
 // Update takes the representation of a profile and updates it. Returns the server's representation of the profile, and an error, if there is any.
 func (c *FakeProfiles) Update(ctx context.Context, profile *kubeflowcontrollerv1.Profile, opts v1.UpdateOptions) (result *kubeflowcontrollerv1.Profile, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(profilesResource, c.ns, profile), &kubeflowcontrollerv1.Profile{})
-
+		Invokes(testing.NewRootUpdateAction(profilesResource, profile), &kubeflowcontrollerv1.Profile{})
 	if obj == nil {
 		return nil, err
 	}
@@ -106,8 +100,7 @@ func (c *FakeProfiles) Update(ctx context.Context, profile *kubeflowcontrollerv1
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 func (c *FakeProfiles) UpdateStatus(ctx context.Context, profile *kubeflowcontrollerv1.Profile, opts v1.UpdateOptions) (*kubeflowcontrollerv1.Profile, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(profilesResource, "status", c.ns, profile), &kubeflowcontrollerv1.Profile{})
-
+		Invokes(testing.NewRootUpdateSubresourceAction(profilesResource, "status", profile), &kubeflowcontrollerv1.Profile{})
 	if obj == nil {
 		return nil, err
 	}
@@ -117,14 +110,13 @@ func (c *FakeProfiles) UpdateStatus(ctx context.Context, profile *kubeflowcontro
 // Delete takes name of the profile and deletes it. Returns an error if one occurs.
 func (c *FakeProfiles) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(profilesResource, c.ns, name), &kubeflowcontrollerv1.Profile{})
-
+		Invokes(testing.NewRootDeleteAction(profilesResource, name), &kubeflowcontrollerv1.Profile{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeProfiles) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(profilesResource, c.ns, listOpts)
+	action := testing.NewRootDeleteCollectionAction(profilesResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &kubeflowcontrollerv1.ProfileList{})
 	return err
@@ -133,8 +125,7 @@ func (c *FakeProfiles) DeleteCollection(ctx context.Context, opts v1.DeleteOptio
 // Patch applies the patch and returns the patched profile.
 func (c *FakeProfiles) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *kubeflowcontrollerv1.Profile, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(profilesResource, c.ns, name, pt, data, subresources...), &kubeflowcontrollerv1.Profile{})
-
+		Invokes(testing.NewRootPatchSubresourceAction(profilesResource, name, pt, data, subresources...), &kubeflowcontrollerv1.Profile{})
 	if obj == nil {
 		return nil, err
 	}

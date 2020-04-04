@@ -24,6 +24,7 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 	v1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
+	v1alpha1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1alpha1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -55,6 +56,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=kubeflow.org, Version=v1
 	case v1.SchemeGroupVersion.WithResource("profiles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeflow().V1().Profiles().Informer()}, nil
+
+		// Group=kubeflow.org, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("poddefaults"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeflow().V1alpha1().PodDefaults().Informer()}, nil
 
 	}
 

@@ -21,20 +21,20 @@ package fake
 import (
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
-	v1 "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1"
+	v1alpha1 "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1alpha1"
 )
 
-type FakeKubeflowV1 struct {
+type FakeKubeflowV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeKubeflowV1) Profiles() v1.ProfileInterface {
-	return &FakeProfiles{c}
+func (c *FakeKubeflowV1alpha1) PodDefaults(namespace string) v1alpha1.PodDefaultInterface {
+	return &FakePodDefaults{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeKubeflowV1) RESTClient() rest.Interface {
+func (c *FakeKubeflowV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

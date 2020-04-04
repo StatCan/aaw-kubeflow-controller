@@ -27,6 +27,8 @@ import (
 	clientset "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned"
 	kubeflowv1 "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1"
 	fakekubeflowv1 "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1/fake"
+	kubeflowv1alpha1 "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1alpha1"
+	fakekubeflowv1alpha1 "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -79,4 +81,9 @@ var _ clientset.Interface = &Clientset{}
 // KubeflowV1 retrieves the KubeflowV1Client
 func (c *Clientset) KubeflowV1() kubeflowv1.KubeflowV1Interface {
 	return &fakekubeflowv1.FakeKubeflowV1{Fake: &c.Fake}
+}
+
+// KubeflowV1alpha1 retrieves the KubeflowV1alpha1Client
+func (c *Clientset) KubeflowV1alpha1() kubeflowv1alpha1.KubeflowV1alpha1Interface {
+	return &fakekubeflowv1alpha1.FakeKubeflowV1alpha1{Fake: &c.Fake}
 }

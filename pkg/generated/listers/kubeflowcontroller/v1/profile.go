@@ -31,8 +31,9 @@ type ProfileLister interface {
 	// List lists all Profiles in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.Profile, err error)
-	// Profiles returns an object that can list and get Profiles.
-	Profiles(namespace string) ProfileNamespaceLister
+	// Get retrieves the Profile from the index for a given name.
+	// Objects returned here must be treated as read-only.
+	Get(name string) (*v1.Profile, error)
 	ProfileListerExpansion
 }
 
@@ -54,41 +55,9 @@ func (s *profileLister) List(selector labels.Selector) (ret []*v1.Profile, err e
 	return ret, err
 }
 
-// Profiles returns an object that can list and get Profiles.
-func (s *profileLister) Profiles(namespace string) ProfileNamespaceLister {
-	return profileNamespaceLister{indexer: s.indexer, namespace: namespace}
-}
-
-// ProfileNamespaceLister helps list and get Profiles.
-// All objects returned here must be treated as read-only.
-type ProfileNamespaceLister interface {
-	// List lists all Profiles in the indexer for a given namespace.
-	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.Profile, err error)
-	// Get retrieves the Profile from the indexer for a given namespace and name.
-	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.Profile, error)
-	ProfileNamespaceListerExpansion
-}
-
-// profileNamespaceLister implements the ProfileNamespaceLister
-// interface.
-type profileNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all Profiles in the indexer for a given namespace.
-func (s profileNamespaceLister) List(selector labels.Selector) (ret []*v1.Profile, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.Profile))
-	})
-	return ret, err
-}
-
-// Get retrieves the Profile from the indexer for a given namespace and name.
-func (s profileNamespaceLister) Get(name string) (*v1.Profile, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
+// Get retrieves the Profile from the index for a given name.
+func (s *profileLister) Get(name string) (*v1.Profile, error) {
+	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}

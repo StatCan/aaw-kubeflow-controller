@@ -17,11 +17,15 @@ limitations under the License.
 package v1
 
 import (
+	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +genclient:nonNamespaced
 
 // Profile is a specification for a Profile resource
 type Profile struct {
@@ -32,15 +36,36 @@ type Profile struct {
 	Status ProfileStatus `json:"status"`
 }
 
-// ProfileSpec is the spec for a Profile resource
-type ProfileSpec struct {
-	DeploymentName string `json:"deploymentName"`
-	Replicas       *int32 `json:"replicas"`
+// Plugin is for customize actions on different platform.
+type Plugin struct {
+	metav1.TypeMeta `json:",inline"`
+	Spec            *runtime.RawExtension `json:"spec,omitempty"`
 }
 
-// ProfileStatus is the status for a Profile resource
+type ProfileCondition struct {
+	Type    string `json:"type,omitempty"`
+	Status  string `json:"status,omitempty" description:"status of the condition, one of True, False, Unknown"`
+	Message string `json:"message,omitempty"`
+}
+
+// ProfileSpec defines the desired state of Profile
+type ProfileSpec struct {
+	// The profile owner
+	Owner   rbacv1.Subject `json:"owner,omitempty"`
+	Plugins []Plugin       `json:"plugins,omitempty"`
+	// Resourcequota that will be applied to target namespace
+	ResourceQuotaSpec v1.ResourceQuotaSpec `json:"resourceQuotaSpec,omitempty"`
+}
+
+const (
+	ProfileSucceed = "Successful"
+	ProfileFailed  = "Failed"
+	ProfileUnknown = "Unknown"
+)
+
+// ProfileStatus defines the observed state of Profile
 type ProfileStatus struct {
-	AvailableReplicas int32 `json:"availableReplicas"`
+	Conditions []ProfileCondition `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

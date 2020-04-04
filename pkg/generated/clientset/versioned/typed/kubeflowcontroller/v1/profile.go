@@ -33,7 +33,7 @@ import (
 // ProfilesGetter has a method to return a ProfileInterface.
 // A group's client should implement this interface.
 type ProfilesGetter interface {
-	Profiles(namespace string) ProfileInterface
+	Profiles() ProfileInterface
 }
 
 // ProfileInterface has methods to work with Profile resources.
@@ -53,14 +53,12 @@ type ProfileInterface interface {
 // profiles implements ProfileInterface
 type profiles struct {
 	client rest.Interface
-	ns     string
 }
 
 // newProfiles returns a Profiles
-func newProfiles(c *KubeflowV1Client, namespace string) *profiles {
+func newProfiles(c *KubeflowV1Client) *profiles {
 	return &profiles{
 		client: c.RESTClient(),
-		ns:     namespace,
 	}
 }
 
@@ -68,7 +66,6 @@ func newProfiles(c *KubeflowV1Client, namespace string) *profiles {
 func (c *profiles) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.Profile, err error) {
 	result = &v1.Profile{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("profiles").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -85,7 +82,6 @@ func (c *profiles) List(ctx context.Context, opts metav1.ListOptions) (result *v
 	}
 	result = &v1.ProfileList{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("profiles").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -102,7 +98,6 @@ func (c *profiles) Watch(ctx context.Context, opts metav1.ListOptions) (watch.In
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Namespace(c.ns).
 		Resource("profiles").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -113,7 +108,6 @@ func (c *profiles) Watch(ctx context.Context, opts metav1.ListOptions) (watch.In
 func (c *profiles) Create(ctx context.Context, profile *v1.Profile, opts metav1.CreateOptions) (result *v1.Profile, err error) {
 	result = &v1.Profile{}
 	err = c.client.Post().
-		Namespace(c.ns).
 		Resource("profiles").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(profile).
@@ -126,7 +120,6 @@ func (c *profiles) Create(ctx context.Context, profile *v1.Profile, opts metav1.
 func (c *profiles) Update(ctx context.Context, profile *v1.Profile, opts metav1.UpdateOptions) (result *v1.Profile, err error) {
 	result = &v1.Profile{}
 	err = c.client.Put().
-		Namespace(c.ns).
 		Resource("profiles").
 		Name(profile.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -141,7 +134,6 @@ func (c *profiles) Update(ctx context.Context, profile *v1.Profile, opts metav1.
 func (c *profiles) UpdateStatus(ctx context.Context, profile *v1.Profile, opts metav1.UpdateOptions) (result *v1.Profile, err error) {
 	result = &v1.Profile{}
 	err = c.client.Put().
-		Namespace(c.ns).
 		Resource("profiles").
 		Name(profile.Name).
 		SubResource("status").
@@ -155,7 +147,6 @@ func (c *profiles) UpdateStatus(ctx context.Context, profile *v1.Profile, opts m
 // Delete takes name of the profile and deletes it. Returns an error if one occurs.
 func (c *profiles) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("profiles").
 		Name(name).
 		Body(&opts).
@@ -170,7 +161,6 @@ func (c *profiles) DeleteCollection(ctx context.Context, opts metav1.DeleteOptio
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("profiles").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -183,7 +173,6 @@ func (c *profiles) DeleteCollection(ctx context.Context, opts metav1.DeleteOptio
 func (c *profiles) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Profile, err error) {
 	result = &v1.Profile{}
 	err = c.client.Patch(pt).
-		Namespace(c.ns).
 		Resource("profiles").
 		Name(name).
 		SubResource(subresources...).
