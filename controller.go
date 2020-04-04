@@ -274,7 +274,7 @@ func (c *Controller) syncHandler(key string) error {
 	deployment, err := c.deploymentsLister.Deployments(profile.Namespace).Get(deploymentName)
 	// If the resource doesn't exist, we'll create it
 	if errors.IsNotFound(err) {
-		deployment, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Create(context.TODO(), newDeployment(profile), metav1.CreateOptions{})
+		deployment, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Create(context.TODO(), newPodDefault(profile), metav1.CreateOptions{})
 	}
 
 	// If an error occurs during Get/Create, we'll requeue the item so we can
@@ -297,7 +297,7 @@ func (c *Controller) syncHandler(key string) error {
 	// should update the Deployment resource.
 	if profile.Spec.Replicas != nil && *profile.Spec.Replicas != *deployment.Spec.Replicas {
 		klog.V(4).Infof("Profile %s replicas: %d, deployment replicas: %d", name, *profile.Spec.Replicas, *deployment.Spec.Replicas)
-		deployment, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newDeployment(profile), metav1.UpdateOptions{})
+		deployment, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newPodDefault(profile), metav1.UpdateOptions{})
 	}
 
 	// If an error occurs during Update, we'll requeue the item so we can
@@ -385,10 +385,10 @@ func (c *Controller) handleObject(obj interface{}) {
 	}
 }
 
-// newDeployment creates a new Deployment for a Profile resource. It also sets
+// newPodDefault creates a new PodDefault for a Profile resource. It also sets
 // the appropriate OwnerReferences on the resource so handleObject can discover
 // the Profile resource that 'owns' it.
-func newDeployment(profile *kubeflowv1.Profile) *appsv1.Deployment {
+func newPodDefault(profile *kubeflowv1.Profile) *appsv1.Deployment {
 	labels := map[string]string{
 		"app":        "nginx",
 		"controller": profile.Name,
