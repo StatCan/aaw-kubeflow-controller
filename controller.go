@@ -255,57 +255,65 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	podDefaultName := profile.Name
-	if podDefaultName == "" {
-		// We choose to absorb the error here as the worker would requeue the
-		// resource otherwise. Instead, the next time the resource is updated
-		// the resource will be queued again.
-		utilruntime.HandleError(fmt.Errorf("%s: PodDefault name must be specified", key))
-		return nil
-	}
+	// Create an array to track all of the PodDefaults managed by this controller.
+	podDefaults := make([]*kubeflowv1alpha1.PodDefault, 0)
 
-	// Get the PodDefault with the name specified in Profile.spec
-	podDefault, err := c.podDefaultsLister.PodDefaults(profile.Name).Get(podDefaultName)
-	// If the resource doesn't exist, we'll create it
-	if errors.IsNotFound(err) {
-		podDefault, err = c.kubeflowclientset.KubeflowV1alpha1().PodDefaults(profile.Name).Create(context.TODO(), newPodDefault(profile), metav1.CreateOptions{})
-	}
+	// Create PodDefaults
+	for podDefaultName, newPodDefault := range PodDefaults {
+		if podDefaultName == "" {
+			// We choose to absorb the error here as the worker would requeue the
+			// resource otherwise. Instead, the next time the resource is updated
+			// the resource will be queued again.
+			utilruntime.HandleError(fmt.Errorf("%s: PodDefault name must be specified", key))
+			return nil
+		}
 
-	// If an error occurs during Get/Create, we'll requeue the item so we can
-	// attempt processing again later. This could have been caused by a
-	// temporary network failure, or any other transient reason.
-	if err != nil {
-		return err
-	}
+		// Get the PodDefault with the name specified in Profile.spec
+		podDefault, err := c.podDefaultsLister.PodDefaults(profile.Name).Get(podDefaultName)
+		// If the resource doesn't exist, we'll create it
+		if errors.IsNotFound(err) {
+			podDefault, err = c.kubeflowclientset.KubeflowV1alpha1().PodDefaults(profile.Name).Create(context.TODO(), newPodDefault(profile), metav1.CreateOptions{})
+		}
 
-	// If the Deployment is not controlled by this Profile resource, we should log
-	// a warning to the event recorder and return error msg.
-	if !metav1.IsControlledBy(podDefault, profile) {
-		msg := fmt.Sprintf(MessageResourceExists, podDefault.Name)
-		c.recorder.Event(profile, corev1.EventTypeWarning, ErrResourceExists, msg)
-		return fmt.Errorf(msg)
-	}
+		// If an error occurs during Get/Create, we'll requeue the item so we can
+		// attempt processing again later. This could have been caused by a
+		// temporary network failure, or any other transient reason.
+		if err != nil {
+			return err
+		}
 
-	// TODO: LOGIC TO COMPARE THE PODDEFAULTS AGAINST EXPECTED STATE.
-	//
-	// If this number of the replicas on the Profile resource is specified, and the
-	// number does not equal the current desired replicas on the Deployment, we
-	// should update the Deployment resource.
-	// if profile.Spec.Replicas != nil && *profile.Spec.Replicas != *deployment.Spec.Replicas {
-	// 	klog.V(4).Infof("Profile %s replicas: %d, deployment replicas: %d", name, *profile.Spec.Replicas, *deployment.Spec.Replicas)
-	// 	podDefault, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newPodDefault(profile), metav1.UpdateOptions{})
-	// }
+		// If the Deployment is not controlled by this Profile resource, we should log
+		// a warning to the event recorder and return error msg.
+		if !metav1.IsControlledBy(podDefault, profile) {
+			msg := fmt.Sprintf(MessageResourceExists, podDefault.Name)
+			c.recorder.Event(profile, corev1.EventTypeWarning, ErrResourceExists, msg)
+			return fmt.Errorf(msg)
+		}
 
-	// If an error occurs during Update, we'll requeue the item so we can
-	// attempt processing again later. This could have been caused by a
-	// temporary network failure, or any other transient reason.
-	if err != nil {
-		return err
+		// TODO: LOGIC TO COMPARE THE PODDEFAULTS AGAINST EXPECTED STATE.
+		//
+		// If this number of the replicas on the Profile resource is specified, and the
+		// number does not equal the current desired replicas on the Deployment, we
+		// should update the Deployment resource.
+		// if profile.Spec.Replicas != nil && *profile.Spec.Replicas != *deployment.Spec.Replicas {
+		// 	klog.V(4).Infof("Profile %s replicas: %d, deployment replicas: %d", name, *profile.Spec.Replicas, *deployment.Spec.Replicas)
+		// 	podDefault, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newPodDefault(profile), metav1.UpdateOptions{})
+		// }
+
+		// If an error occurs during Update, we'll requeue the item so we can
+		// attempt processing again later. This could have been caused by a
+		// temporary network failure, or any other transient reason.
+		if err != nil {
+			return err
+		}
+
+		// Track PodDefaults associated with the profile.
+		podDefaults = append(podDefaults, podDefault)
 	}
 
 	// Finally, we update the status block of the Profile resource to reflect the
 	// current state of the world
-	err = c.updateProfileStatus(profile, podDefault)
+	err = c.updateProfileStatus(profile, podDefaults)
 	if err != nil {
 		return err
 	}
@@ -314,7 +322,7 @@ func (c *Controller) syncHandler(key string) error {
 	return nil
 }
 
-func (c *Controller) updateProfileStatus(profile *kubeflowv1.Profile, podDefault *kubeflowv1alpha1.PodDefault) error {
+func (c *Controller) updateProfileStatus(profile *kubeflowv1.Profile, podDefaults []*kubeflowv1alpha1.PodDefault) error {
 	// NEVER modify objects from the store. It's a read-only, local cache.
 	// You can use DeepCopy() to make a deep copy of original object and modify this copy
 	// Or create a copy manually for better performance
@@ -377,34 +385,5 @@ func (c *Controller) handleObject(obj interface{}) {
 
 		c.enqueueProfile(profile)
 		return
-	}
-}
-
-// newPodDefault creates a new PodDefault for a Profile resource. It also sets
-// the appropriate OwnerReferences on the resource so handleObject can discover
-// the Profile resource that 'owns' it.
-func newPodDefault(profile *kubeflowv1.Profile) *kubeflowv1alpha1.PodDefault {
-	return &kubeflowv1alpha1.PodDefault{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      profile.Name,
-			Namespace: profile.Name,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(profile, kubeflowv1.SchemeGroupVersion.WithKind("Profile")),
-			},
-		},
-		Spec: kubeflowv1alpha1.PodDefaultSpec{
-			Desc: "Set the WORKSPACE_PORT environment variable to 8888",
-			Selector: metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"workspace-port": "true",
-				},
-			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "WORKSPACE_PORT",
-					Value: "8888",
-				},
-			},
-		},
 	}
 }
