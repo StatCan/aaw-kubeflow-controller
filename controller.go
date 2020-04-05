@@ -21,14 +21,16 @@ import (
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	v1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	typedv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	v1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -68,10 +70,16 @@ type Controller struct {
 	// kubeflowclientset is a clientset for our own API group
 	kubeflowclientset clientset.Interface
 
-	podDefaultsLister v1alpha1listers.PodDefaultLister
-	podDefaultsSynced cache.InformerSynced
-	profilesLister    listers.ProfileLister
-	profilesSynced    cache.InformerSynced
+	podDefaultsLister    v1alpha1listers.PodDefaultLister
+	podDefaultsSynced    cache.InformerSynced
+	secretsLister        v1listers.SecretLister
+	secretsSynced        cache.InformerSynced
+	serviceAccountLister v1listers.ServiceAccountLister
+	serviceAccountSynced cache.InformerSynced
+	profilesLister       listers.ProfileLister
+	profilesSynced       cache.InformerSynced
+
+	dockerConfigJSON []byte
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -89,7 +97,10 @@ func NewController(
 	kubeclientset kubernetes.Interface,
 	kubeflowclientset clientset.Interface,
 	podDefaultInformer v1alpha1informers.PodDefaultInformer,
-	profileInformer informers.ProfileInformer) *Controller {
+	secretInformer v1informers.SecretInformer,
+	serviceAccountInformer v1informers.ServiceAccountInformer,
+	profileInformer informers.ProfileInformer,
+	dockerConfigJSON []byte) *Controller {
 
 	// Create event broadcaster
 	// Add kubeflow-controller types to the default Kubernetes Scheme so Events can be
@@ -98,18 +109,23 @@ func NewController(
 	klog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
+	eventBroadcaster.StartRecordingToSink(&typedv1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:     kubeclientset,
-		kubeflowclientset: kubeflowclientset,
-		podDefaultsLister: podDefaultInformer.Lister(),
-		podDefaultsSynced: podDefaultInformer.Informer().HasSynced,
-		profilesLister:    profileInformer.Lister(),
-		profilesSynced:    profileInformer.Informer().HasSynced,
-		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Profiles"),
-		recorder:          recorder,
+		kubeclientset:        kubeclientset,
+		kubeflowclientset:    kubeflowclientset,
+		podDefaultsLister:    podDefaultInformer.Lister(),
+		podDefaultsSynced:    podDefaultInformer.Informer().HasSynced,
+		secretsLister:        secretInformer.Lister(),
+		secretsSynced:        secretInformer.Informer().HasSynced,
+		serviceAccountLister: serviceAccountInformer.Lister(),
+		serviceAccountSynced: serviceAccountInformer.Informer().HasSynced,
+		profilesLister:       profileInformer.Lister(),
+		profilesSynced:       profileInformer.Informer().HasSynced,
+		dockerConfigJSON:     dockerConfigJSON,
+		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Profiles"),
+		recorder:             recorder,
 	}
 
 	klog.Info("Setting up event handlers")
@@ -142,6 +158,48 @@ func NewController(
 		DeleteFunc: controller.handleObject,
 	})
 
+	// Set up an event handler for when Secret resources change. This
+	// handler will lookup the owner of the given Secret, and if it is
+	// owned by a Profile resource will enqueue that Profile resource for
+	// processing. This way, we don't need to implement custom logic for
+	// handling Secret resources. More info on this pattern:
+	// https://github.com/kubernetes/community/blob/8cafef897a22026d42f5e5bb3f104febe7e29830/contributors/devel/controllers.md
+	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.handleObject,
+		UpdateFunc: func(old, new interface{}) {
+			newPD := new.(*v1.Secret)
+			oldPD := old.(*v1.Secret)
+			if newPD.ResourceVersion == oldPD.ResourceVersion {
+				// Periodic resync will send update events for all known Deployments.
+				// Two different versions of the same Deployment will always have different RVs.
+				return
+			}
+			controller.handleObject(new)
+		},
+		DeleteFunc: controller.handleObject,
+	})
+
+	// Set up an event handler for when ServiceAccount resources change. This
+	// handler will lookup the owner of the given ServiceAccount, and if it is
+	// owned by a Profile resource will enqueue that Profile resource for
+	// processing. This way, we don't need to implement custom logic for
+	// handling ServiceAccount resources. More info on this pattern:
+	// https://github.com/kubernetes/community/blob/8cafef897a22026d42f5e5bb3f104febe7e29830/contributors/devel/controllers.md
+	serviceAccountInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.handleObject,
+		UpdateFunc: func(old, new interface{}) {
+			newPD := new.(*v1.ServiceAccount)
+			oldPD := old.(*v1.ServiceAccount)
+			if newPD.ResourceVersion == oldPD.ResourceVersion {
+				// Periodic resync will send update events for all known Deployments.
+				// Two different versions of the same Deployment will always have different RVs.
+				return
+			}
+			controller.handleObject(new)
+		},
+		DeleteFunc: controller.handleObject,
+	})
+
 	return controller
 }
 
@@ -158,7 +216,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.podDefaultsSynced, c.profilesSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.podDefaultsSynced, c.secretsSynced, c.profilesSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -286,7 +344,7 @@ func (c *Controller) syncHandler(key string) error {
 		// a warning to the event recorder and return error msg.
 		if !metav1.IsControlledBy(podDefault, profile) {
 			msg := fmt.Sprintf(MessageResourceExists, podDefault.Name)
-			c.recorder.Event(profile, corev1.EventTypeWarning, ErrResourceExists, msg)
+			c.recorder.Event(profile, v1.EventTypeWarning, ErrResourceExists, msg)
 			return fmt.Errorf(msg)
 		}
 
@@ -311,18 +369,118 @@ func (c *Controller) syncHandler(key string) error {
 		podDefaults = append(podDefaults, podDefault)
 	}
 
-	// Finally, we update the status block of the Profile resource to reflect the
-	// current state of the world
-	err = c.updateProfileStatus(profile, podDefaults)
+	// Add a secret into the namespace for the imagePullSecrets
+	var secret *v1.Secret
+	var serviceAccount *v1.ServiceAccount
+	secretName := "image-pull-secret"
+	serviceAccountName := "default-editor"
+
+	if len(c.dockerConfigJSON) > 0 {
+
+		// Get the PodDefault with the name specified in Profile.spec
+		secret, err = c.secretsLister.Secrets(profile.Name).Get(secretName)
+		// If the resource doesn't exist, we'll create it
+		if errors.IsNotFound(err) {
+			secret, err = c.kubeclientset.CoreV1().Secrets(profile.Name).Create(context.TODO(), newImagePullSecret(profile, c.dockerConfigJSON), metav1.CreateOptions{})
+		}
+
+		// If an error occurs during Get/Create, we'll requeue the item so we can
+		// attempt processing again later. This could have been caused by a
+		// temporary network failure, or any other transient reason.
+		if err != nil {
+			return err
+		}
+
+		// If the Deployment is not controlled by this Profile resource, we should log
+		// a warning to the event recorder and return error msg.
+		if !metav1.IsControlledBy(secret, profile) {
+			msg := fmt.Sprintf(MessageResourceExists, secret.Name)
+			c.recorder.Event(profile, v1.EventTypeWarning, ErrResourceExists, msg)
+			return fmt.Errorf(msg)
+		}
+
+		// TODO: LOGIC TO COMPARE THE PODDEFAULTS AGAINST EXPECTED STATE.
+		//
+		// If this number of the replicas on the Profile resource is specified, and the
+		// number does not equal the current desired replicas on the Deployment, we
+		// should update the Deployment resource.
+		// if profile.Spec.Replicas != nil && *profile.Spec.Replicas != *deployment.Spec.Replicas {
+		// 	klog.V(4).Infof("Profile %s replicas: %d, deployment replicas: %d", name, *profile.Spec.Replicas, *deployment.Spec.Replicas)
+		// 	podDefault, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newPodDefault(profile), metav1.UpdateOptions{})
+		// }
+
+		// If an error occurs during Update, we'll requeue the item so we can
+		// attempt processing again later. This could have been caused by a
+		// temporary network failure, or any other transient reason.
+		if err != nil {
+			return err
+		}
+	}
+
+	// Get the PodDefault with the name specified in Profile.spec
+	serviceAccount, err = c.serviceAccountLister.ServiceAccounts(profile.Name).Get(serviceAccountName)
+	// If the resource doesn't exist, exit. We'll loop around and try again,
+	// it's likely the Kubeflow profile-controller hasn't created it yet.
+	if errors.IsNotFound(err) {
+		return err
+	}
+
+	// If an error occurs during Get/Create, we'll requeue the item so we can
+	// attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
 	if err != nil {
 		return err
 	}
 
-	c.recorder.Event(profile, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
+	found := -1
+	for indx, pullSecret := range serviceAccount.ImagePullSecrets {
+		if pullSecret.Name == secretName {
+			found = indx
+			break
+		}
+	}
+
+	if found < 0 && len(c.dockerConfigJSON) > 0 {
+		// Let's add the imagePullSecret to the ServiceAccount
+		serviceAccountCopy := serviceAccount.DeepCopy()
+		serviceAccountCopy.ImagePullSecrets = append(serviceAccountCopy.ImagePullSecrets, v1.LocalObjectReference{
+			Name: secretName,
+		})
+
+		serviceAccount, err = c.kubeclientset.CoreV1().ServiceAccounts(profile.Name).Update(context.TODO(), serviceAccountCopy, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	} else if found >= 0 && len(c.dockerConfigJSON) == 0 {
+		// Let's remove it
+		serviceAccountCopy := serviceAccount.DeepCopy()
+		serviceAccountCopy.ImagePullSecrets = append(serviceAccountCopy.ImagePullSecrets[:found], serviceAccountCopy.ImagePullSecrets[found+1:]...)
+
+		serviceAccount, err = c.kubeclientset.CoreV1().ServiceAccounts(profile.Name).Update(context.TODO(), serviceAccountCopy, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	// If an error occurs during Update, we'll requeue the item so we can
+	// attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return err
+	}
+
+	// Finally, we update the status block of the Profile resource to reflect the
+	// current state of the world
+	err = c.updateProfileStatus(profile, podDefaults, secret, serviceAccount)
+	if err != nil {
+		return err
+	}
+
+	c.recorder.Event(profile, v1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
 }
 
-func (c *Controller) updateProfileStatus(profile *kubeflowv1.Profile, podDefaults []*kubeflowv1alpha1.PodDefault) error {
+func (c *Controller) updateProfileStatus(profile *kubeflowv1.Profile, podDefaults []*kubeflowv1alpha1.PodDefault, secret *v1.Secret, serviceAccount *v1.ServiceAccount) error {
 	// NEVER modify objects from the store. It's a read-only, local cache.
 	// You can use DeepCopy() to make a deep copy of original object and modify this copy
 	// Or create a copy manually for better performance
@@ -385,5 +543,21 @@ func (c *Controller) handleObject(obj interface{}) {
 
 		c.enqueueProfile(profile)
 		return
+	}
+}
+
+func newImagePullSecret(profile *kubeflowv1.Profile, dockerConfigJSON []byte) *v1.Secret {
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "image-pull-secret",
+			Namespace: profile.Name,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(profile, kubeflowv1.SchemeGroupVersion.WithKind("Profile")),
+			},
+		},
+		Type: v1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			".dockerconfigjson": dockerConfigJSON,
+		},
 	}
 }

@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 
+	kubeinformers "k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
 
 	clientset "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned"
@@ -34,6 +35,8 @@ import (
 var (
 	masterURL  string
 	kubeconfig string
+
+	imagePullSecret string
 )
 
 func main() {
@@ -58,16 +61,19 @@ func main() {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
-	// kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, time.Second*30)
 
 	controller := NewController(kubeClient, kubeflowClient,
 		kubeflowInformerFactory.Kubeflow().V1alpha1().PodDefaults(),
-		kubeflowInformerFactory.Kubeflow().V1().Profiles())
+		kubeInformerFactory.Core().V1().Secrets(),
+		kubeInformerFactory.Core().V1().ServiceAccounts(),
+		kubeflowInformerFactory.Kubeflow().V1().Profiles(),
+		[]byte(imagePullSecret))
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
 	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
-	// kubeInformerFactory.Start(stopCh)
+	kubeInformerFactory.Start(stopCh)
 	kubeflowInformerFactory.Start(stopCh)
 
 	if err = controller.Run(2, stopCh); err != nil {
@@ -76,6 +82,8 @@ func main() {
 }
 
 func init() {
+	flag.StringVar(&imagePullSecret, "image-pull-secret", "", "Encoded dockerconfigjson for the image pull secret. Ignored if empty.")
+
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 }
