@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"os"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -42,6 +43,11 @@ var (
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
+
+	// If an image pull secret wasn't provided, try loading from an environment variable.
+	if len(imagePullSecret) == 0 {
+		imagePullSecret = os.Getenv("IMAGE_PULL_SECRET")
+	}
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
