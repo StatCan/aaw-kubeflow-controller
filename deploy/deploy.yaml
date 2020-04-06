@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: profile-configurator
+  namespace: daaas
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: profile-configurator
+  namespace: daaas
+  labels:
+    apps.kubernetes.io/name: profile-configurator
+spec:
+  selector:
+    matchLabels:
+      apps.kubernetes.io/name: profile-configurator
+  template:
+    metadata:
+      labels:
+        apps.kubernetes.io/name: profile-configurator
+    spec:
+      serviceAccountName: profile-configurator
+      imagePullSecrets:
+        - name: k8scc01covidacr-registry-connection
+      containers:
+      - name: profile-configurator
+        image: k8scc01covidacr.azurecr.io/kubeflow-controller:5b97c3d69dfd1008742dc679d32337cd7328dbd1
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        env:
+          - name: IMAGE_PULL_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: k8scc01covidacr-registry-connection
+                key: .dockerconfigjson
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: profile-configurator
+rules:
+- apiGroups:
+    - ''
+  resources:
+    - 'secrets'
+    - 'serviceaccounts'
+  verbs:
+    - watch
+    - list
+- apiGroups:
+    - ''
+  resources:
+    - 'secrets'
+  verbs:
+    - create
+- apiGroups:
+    - ''
+  resources:
+    - 'secrets'
+  verbs:
+    - get
+    - create
+    - update
+    - delete
+  resourceNames:
+    - image-pull-secret
+- apiGroups:
+    - ''
+  resources:
+    - 'serviceaccounts'
+  verbs:
+    - get
+    - update
+  resourceNames:
+    - default-editor
+- apiGroups:
+    - 'kubeflow.org'
+  resources:
+    - 'profiles'
+    - 'poddefaults'
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+- apiGroups:
+    - ''
+  resources:
+    - 'events'
+  verbs:
+    - create
+    - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: profile-configurator
+subjects:
+- kind: ServiceAccount
+  name: profile-configurator
+  namespace: daaas
+roleRef:
+  kind: ClusterRole
+  name: profile-configurator
+  apiGroup: rbac.authorization.k8s.io
