@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -340,7 +341,7 @@ func (c *Controller) syncHandler(key string) error {
 			return err
 		}
 
-		// If the Deployment is not controlled by this Profile resource, we should log
+		// If the PodDefault is not controlled by this Profile resource, we should log
 		// a warning to the event recorder and return error msg.
 		if !metav1.IsControlledBy(podDefault, profile) {
 			msg := fmt.Sprintf(MessageResourceExists, podDefault.Name)
@@ -348,15 +349,15 @@ func (c *Controller) syncHandler(key string) error {
 			return fmt.Errorf(msg)
 		}
 
-		// TODO: LOGIC TO COMPARE THE PODDEFAULTS AGAINST EXPECTED STATE.
-		//
-		// If this number of the replicas on the Profile resource is specified, and the
-		// number does not equal the current desired replicas on the Deployment, we
-		// should update the Deployment resource.
-		// if profile.Spec.Replicas != nil && *profile.Spec.Replicas != *deployment.Spec.Replicas {
-		// 	klog.V(4).Infof("Profile %s replicas: %d, deployment replicas: %d", name, *profile.Spec.Replicas, *deployment.Spec.Replicas)
-		// 	podDefault, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newPodDefault(profile), metav1.UpdateOptions{})
-		// }
+		// Check against the expected PodDefault to see if the spec has changed.
+		expectedPodDefault := newPodDefault(profile)
+		if !reflect.DeepEqual(podDefault.Spec, expectedPodDefault.Spec) {
+			// Maintain the original meta information
+			expectedPodDefault.ObjectMeta = podDefault.ObjectMeta
+
+			klog.V(4).Infof("Profile %s PodDefault %s out of sync", profile.Name, podDefaultName)
+			podDefault, err = c.kubeflowclientset.KubeflowV1alpha1().PodDefaults(profile.Name).Update(context.TODO(), expectedPodDefault, metav1.UpdateOptions{})
+		}
 
 		// If an error occurs during Update, we'll requeue the item so we can
 		// attempt processing again later. This could have been caused by a
