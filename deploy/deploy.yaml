@@ -25,7 +25,7 @@ spec:
         - name: k8scc01covidacr-registry-connection
       containers:
       - name: profile-configurator
-        image: k8scc01covidacr.azurecr.io/kubeflow-controller:5b97c3d69dfd1008742dc679d32337cd7328dbd1
+        image: k8scc01covidacr.azurecr.io/kubeflow-controller:1790983e88988dd4b863072a6f1843d6e426cbf3
         resources:
           limits:
             memory: "128Mi"
