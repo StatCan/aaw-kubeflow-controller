@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeflowv1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
 	kubeflowv1alpha1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1alpha1"
@@ -79,34 +78,6 @@ func init() {
 					{
 						Name:  "WORKSPACE_BASE_URL",
 						Value: "$(NB_PREFIX)",
-					},
-				},
-			},
-		}
-	})
-
-	RegisterPodDefault("gpu-node", func(profile *kubeflowv1.Profile) *kubeflowv1alpha1.PodDefault {
-		return &kubeflowv1alpha1.PodDefault{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "gpu-node",
-				Namespace: profile.Name,
-				OwnerReferences: []metav1.OwnerReference{
-					*metav1.NewControllerRef(profile, kubeflowv1.SchemeGroupVersion.WithKind("Profile")),
-				},
-			},
-			Spec: kubeflowv1alpha1.PodDefaultSpec{
-				Desc: "Allow the notebook to run on a GPU node",
-				Selector: metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"gpu-node": "true",
-					},
-				},
-				Tolerations: []v1.Toleration{
-					{
-						Key:      "dedicated",
-						Value:    "gpu",
-						Operator: v1.TolerationOpEqual,
-						Effect:   v1.TaintEffectNoSchedule,
 					},
 				},
 			},
