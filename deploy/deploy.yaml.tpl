@@ -42,6 +42,10 @@ spec:
                 key: .dockerconfigjson
           - name: VAULT_AGENT_ADDR
             value: 127.0.0.1:8100
+          - name: MINIO_INSTANCES
+            value: ${MINIO_INSTANCES}
+          - name: KUBERNETES_AUTH_PATH
+            value: ${VAULT_AUTH_PATH}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

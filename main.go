@@ -53,6 +53,14 @@ func main() {
 		imagePullSecret = os.Getenv("IMAGE_PULL_SECRET")
 	}
 
+	if len(minioInstances) == 0 {
+		minioInstances = os.Getenv("MINIO_INSTANCES")
+	}
+
+	if len(kubernetesAuthPath) == 0 {
+		kubernetesAuthPath = os.Getenv("KUBERNETES_AUTH_PATH")
+	}
+
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
@@ -103,7 +111,7 @@ func main() {
 func init() {
 	flag.StringVar(&imagePullSecret, "image-pull-secret", "", "Encoded dockerconfigjson for the image pull secret. Ignored if empty.")
 	flag.StringVar(&minioInstances, "minio-instances", "", "MinIO instances to configure in Vault.")
-	flag.StringVar(&kubernetesAuthPath, "minio-instances", "", "Kubernetes auth path the configure in Vault.")
+	flag.StringVar(&kubernetesAuthPath, "kubernetes-auth-path", "", "Kubernetes auth path the configure in Vault.")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 }

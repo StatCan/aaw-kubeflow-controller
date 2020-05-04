@@ -44,6 +44,7 @@ jobs:
         export IMAGE_SHA=${{ github.sha }}
         export VAULT_AUTH_PATH=${{ secrets.VAULT_AUTH_PATH }}
         export VAULT_ADDR=${{ secrets.VAULT_ADDR }}
+        export MINIO_INSTANCES=${{ secrets.MINIO_INSTANCES }}
 
         envsubst < deploy/deploy.yaml.tpl > deploy/deploy.yaml
 
