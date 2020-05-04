@@ -19,8 +19,10 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 	"time"
 
+	vault "github.com/hashicorp/vault/api"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
@@ -37,7 +39,9 @@ var (
 	masterURL  string
 	kubeconfig string
 
-	imagePullSecret string
+	imagePullSecret    string
+	minioInstances     string
+	kubernetesAuthPath string
 )
 
 func main() {
@@ -70,12 +74,21 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, time.Second*30)
 
+	// Vault
+	vc, err := vault.NewClient(&vault.Config{
+		AgentAddress: os.Getenv("VAULT_AGENT_ADDR"),
+	})
+	if err != nil {
+		klog.Fatalf("Error initializing Vault client: %s", err)
+	}
+
 	controller := NewController(kubeClient, kubeflowClient,
 		kubeflowInformerFactory.Kubeflow().V1alpha1().PodDefaults(),
 		kubeInformerFactory.Core().V1().Secrets(),
 		kubeInformerFactory.Core().V1().ServiceAccounts(),
 		kubeflowInformerFactory.Kubeflow().V1().Profiles(),
-		[]byte(imagePullSecret))
+		[]byte(imagePullSecret),
+		vc, strings.Split(minioInstances, ","), kubernetesAuthPath)
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
 	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
@@ -89,7 +102,8 @@ func main() {
 
 func init() {
 	flag.StringVar(&imagePullSecret, "image-pull-secret", "", "Encoded dockerconfigjson for the image pull secret. Ignored if empty.")
-
+	flag.StringVar(&minioInstances, "minio-instances", "", "MinIO instances to configure in Vault.")
+	flag.StringVar(&kubernetesAuthPath, "minio-instances", "", "Kubernetes auth path the configure in Vault.")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 }

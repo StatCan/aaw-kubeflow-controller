@@ -84,10 +84,12 @@ func init() {
 		}
 	})
 
-	RegisterPodDefault("minio-read-all", func(profile *kubeflowv1.Profile) *kubeflowv1alpha1.PodDefault {
+	RegisterPodDefault("minio-profile", func(profile *kubeflowv1.Profile) *kubeflowv1alpha1.PodDefault {
+		roleName := cleanName(fmt.Sprintf("profile-%s", profile.Name))
+
 		return &kubeflowv1alpha1.PodDefault{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "minio-read-all",
+				Name:      "minio-profile",
 				Namespace: profile.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					*metav1.NewControllerRef(profile, kubeflowv1.SchemeGroupVersion.WithKind("Profile")),
@@ -97,37 +99,37 @@ func init() {
 				Desc: "Inject credentials to access MinIO object storage",
 				Selector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"minio-read-all": "true",
+						"minio-profile": "true",
 					},
 				},
 				Annotations: map[string]string{
 					"vault.hashicorp.com/agent-inject":                              "true",
 					"vault.hashicorp.com/agent-init-first":                          "true",
 					"vault.hashicorp.com/role":                                      "minio",
-					"vault.hashicorp.com/agent-inject-secret-minio-minimal-tenant1": "minio_minimal_tenant1/keys/read-all",
-					"vault.hashicorp.com/agent-inject-template-minio-minimal-tenant1": `
-{{- with secret "minio_minimal_tenant1/keys/read-all" }}
+					"vault.hashicorp.com/agent-inject-secret-minio-minimal-tenant1": "minio_minimal_tenant1/keys/" + roleName,
+					"vault.hashicorp.com/agent-inject-template-minio-minimal-tenant1": fmt.Sprintf(`
+{{- with secret "minio_minimal_tenant1/keys/%s" }}
 export MINIO_URL="http://minimal-tenant1-minio.minio:9000"
 export MINIO_ACCESS_KEY="{{ .Data.accessKeyId }}"
 export MINIO_SECRET_KEY="{{ .Data.secretAccessKey }}"
 {{- end }}
-					`,
-					"vault.hashicorp.com/agent-inject-secret-minio-pachyderm-tenant1": "minio_pachyderm_tenant1/keys/read-all",
-					"vault.hashicorp.com/agent-inject-template-minio-pachyderm-tenant1": `
-{{- with secret "minio_pachyderm_tenant1/keys/read-all" }}
+					`, roleName),
+					"vault.hashicorp.com/agent-inject-secret-minio-pachyderm-tenant1": "minio_pachyderm_tenant1/keys/" + roleName,
+					"vault.hashicorp.com/agent-inject-template-minio-pachyderm-tenant1": fmt.Sprintf(`
+{{- with secret "minio_pachyderm_tenant1/keys/%s" }}
 export MINIO_URL="http://pachyderm-tenant1-minio.minio:9000"
 export MINIO_ACCESS_KEY="{{ .Data.accessKeyId }}"
 export MINIO_SECRET_KEY="{{ .Data.secretAccessKey }}"
 {{- end }}
-					`,
-					"vault.hashicorp.com/agent-inject-secret-minio-premium-tenant1": "minio_premium_tenant1/keys/read-all",
-					"vault.hashicorp.com/agent-inject-template-minio-premium-tenant1": `
-{{- with secret "minio_premium_tenant1/keys/read-all" }}
+					`, roleName),
+					"vault.hashicorp.com/agent-inject-secret-minio-premium-tenant1": "minio_premium_tenant1/keys/" + roleName,
+					"vault.hashicorp.com/agent-inject-template-minio-premium-tenant1": fmt.Sprintf(`
+{{- with secret "minio_premium_tenant1/keys/%s" }}
 export MINIO_URL="http://premium-tenant1-minio.minio:9000"
 export MINIO_ACCESS_KEY="{{ .Data.accessKeyId }}"
 export MINIO_SECRET_KEY="{{ .Data.secretAccessKey }}"
 {{- end }}
-					`,
+					`, roleName),
 				},
 			},
 		}

@@ -19,13 +19,17 @@ spec:
     metadata:
       labels:
         apps.kubernetes.io/name: profile-configurator
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/agent-configmap: "profile-configurator-vault-agent-config"
+        vault.hashicorp.com/agent-pre-populate: "false"
     spec:
       serviceAccountName: profile-configurator
       imagePullSecrets:
         - name: k8scc01covidacr-registry-connection
       containers:
       - name: profile-configurator
-        image: k8scc01covidacr.azurecr.io/kubeflow-controller:1790983e88988dd4b863072a6f1843d6e426cbf3
+        image: k8scc01covidacr.azurecr.io/kubeflow-controller:${IMAGE_SHA}
         resources:
           limits:
             memory: "128Mi"
@@ -36,6 +40,8 @@ spec:
               secretKeyRef:
                 name: k8scc01covidacr-registry-connection
                 key: .dockerconfigjson
+          - name: VAULT_AGENT_ADDR
+            value: 127.0.0.1:8100
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -107,3 +113,35 @@ roleRef:
   kind: ClusterRole
   name: profile-configurator
   apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: profile-configurator-vault-agent-config
+data:
+  config.hcl: |
+    "auto_auth" = {
+      "method" = {
+        "config" = {
+          "role" = "profile-configurator"
+        }
+        "type" = "kubernetes"
+        "mount_path" = "${VAULT_AUTH_PATH}"
+      }
+    }
+
+    "exit_after_auth" = false
+    "pid_file" = "/home/vault/.pid"
+
+    cache {
+      "use_auto_auth_token" = "force"
+    }
+
+    listener "tcp" {
+      address = "127.0.0.1:8100"
+      "tls_disable" = true
+    }
+
+    "vault" = {
+      "address" = "${VAULT_ADDR}"
+    }

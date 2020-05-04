@@ -5,6 +5,7 @@ module k8s.io/kubeflow-controller
 go 1.13
 
 require (
+	github.com/hashicorp/vault/api v1.0.4
 	k8s.io/api v0.0.0-20200403220253-fa879b399cd0
 	k8s.io/apimachinery v0.0.0-20200403220105-fa0d5bf06730
 	k8s.io/client-go v0.0.0-20200403220520-7039b495eb3e
