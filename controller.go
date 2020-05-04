@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"time"
 
+	vault "github.com/hashicorp/vault/api"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,6 +83,10 @@ type Controller struct {
 
 	dockerConfigJSON []byte
 
+	vaultClient        *vault.Client
+	minioInstances     []string
+	kubernetesAuthPath string
+
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
 	// means we can ensure we only process a fixed amount of resources at a
@@ -101,7 +106,8 @@ func NewController(
 	secretInformer v1informers.SecretInformer,
 	serviceAccountInformer v1informers.ServiceAccountInformer,
 	profileInformer informers.ProfileInformer,
-	dockerConfigJSON []byte) *Controller {
+	dockerConfigJSON []byte,
+	vaultClient *vault.Client, minioInstances []string, kubernetesAuthPath string) *Controller {
 
 	// Create event broadcaster
 	// Add kubeflow-controller types to the default Kubernetes Scheme so Events can be
@@ -125,6 +131,9 @@ func NewController(
 		profilesLister:       profileInformer.Lister(),
 		profilesSynced:       profileInformer.Informer().HasSynced,
 		dockerConfigJSON:     dockerConfigJSON,
+		vaultClient:          vaultClient,
+		minioInstances:       minioInstances,
+		kubernetesAuthPath:   kubernetesAuthPath,
 		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Profiles"),
 		recorder:             recorder,
 	}
@@ -462,6 +471,9 @@ func (c *Controller) syncHandler(key string) error {
 			return err
 		}
 	}
+
+	// Configure vault
+	err = doVaultConfiguration(c.vaultClient, profile.Name, c.minioInstances, c.kubernetesAuthPath)
 
 	// If an error occurs during Update, we'll requeue the item so we can
 	// attempt processing again later. This could have been caused by a
