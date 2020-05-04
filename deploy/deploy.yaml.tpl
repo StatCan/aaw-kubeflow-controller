@@ -41,7 +41,7 @@ spec:
                 name: k8scc01covidacr-registry-connection
                 key: .dockerconfigjson
           - name: VAULT_AGENT_ADDR
-            value: 127.0.0.1:8100
+            value: http://127.0.0.1:8100
           - name: MINIO_INSTANCES
             value: ${MINIO_INSTANCES}
           - name: KUBERNETES_AUTH_PATH

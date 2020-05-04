@@ -119,7 +119,7 @@ func doMount(vc *vault.Client, name string) (string, error) {
 }
 
 func doKubernetesBackendRole(vc *vault.Client, authPath, name string, policies []string) error {
-	rolePath := fmt.Sprintf("/auth/%s/role/%s", authPath, name)
+	rolePath := fmt.Sprintf("/%s/role/%s", authPath, name)
 
 	secret, err := vc.Logical().Read(rolePath)
 	if err != nil {
