@@ -118,8 +118,8 @@ func doMount(vc *vault.Client, name string) (string, error) {
 	return mountName, nil
 }
 
-func doKubernetesBackendRole(vc *vault.Client, authPath, name string, policies []string) error {
-	rolePath := fmt.Sprintf("/%s/role/%s", authPath, name)
+func doKubernetesBackendRole(vc *vault.Client, authPath, name, roleName string, policies []string) error {
+	rolePath := fmt.Sprintf("/%s/role/%s", authPath, roleName)
 
 	secret, err := vc.Logical().Read(rolePath)
 	if err != nil {
@@ -127,7 +127,7 @@ func doKubernetesBackendRole(vc *vault.Client, authPath, name string, policies [
 	}
 
 	if secret == nil {
-		klog.Infof("creating backend role in %q for %q", authPath, name)
+		klog.Infof("creating backend role in %q for %q", authPath, roleName)
 
 		secret, err = vc.Logical().Write(rolePath, map[string]interface{}{
 			"bound_service_account_names":      []string{"*"},
@@ -203,7 +203,7 @@ func doVaultConfiguration(vc *vault.Client, profileName string, minioInstances [
 	// to permit authentication from the profile's
 	// namespace.
 	//
-	if err := doKubernetesBackendRole(vc, kubernetesAuthPath, name, []string{"default", policyName}); err != nil {
+	if err := doKubernetesBackendRole(vc, kubernetesAuthPath, profileName, name, []string{"default", policyName}); err != nil {
 		return err
 	}
 
