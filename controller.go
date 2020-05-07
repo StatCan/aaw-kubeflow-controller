@@ -86,6 +86,7 @@ type Controller struct {
 	vaultClient        *vault.Client
 	minioInstances     []string
 	kubernetesAuthPath string
+	oidcAuthAccessor   string
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -107,7 +108,10 @@ func NewController(
 	serviceAccountInformer v1informers.ServiceAccountInformer,
 	profileInformer informers.ProfileInformer,
 	dockerConfigJSON []byte,
-	vaultClient *vault.Client, minioInstances []string, kubernetesAuthPath string) *Controller {
+	vaultClient *vault.Client,
+	minioInstances []string,
+	kubernetesAuthPath string,
+	oidcAuthAccessor string) *Controller {
 
 	// Create event broadcaster
 	// Add kubeflow-controller types to the default Kubernetes Scheme so Events can be
@@ -134,6 +138,7 @@ func NewController(
 		vaultClient:          vaultClient,
 		minioInstances:       minioInstances,
 		kubernetesAuthPath:   kubernetesAuthPath,
+		oidcAuthAccessor:     oidcAuthAccessor,
 		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Profiles"),
 		recorder:             recorder,
 	}
@@ -473,7 +478,7 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	// Configure vault
-	err = doVaultConfiguration(c.vaultClient, profile.Name, c.minioInstances, c.kubernetesAuthPath)
+	err = doVaultConfiguration(c.vaultClient, profile.Name, profile.Spec.Owner.Name, c.minioInstances, c.kubernetesAuthPath, c.oidcAuthAccessor)
 
 	// If an error occurs during Update, we'll requeue the item so we can
 	// attempt processing again later. This could have been caused by a

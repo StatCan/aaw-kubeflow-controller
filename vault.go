@@ -118,7 +118,7 @@ func doMount(vc *vault.Client, name string) (string, error) {
 	return mountName, nil
 }
 
-func doKubernetesBackendRole(vc *vault.Client, authPath, name, roleName string, policies []string) error {
+func doKubernetesBackendRole(vc *vault.Client, authPath, namespace, roleName string, policies []string) error {
 	rolePath := fmt.Sprintf("/%s/role/%s", authPath, roleName)
 
 	secret, err := vc.Logical().Read(rolePath)
@@ -131,7 +131,7 @@ func doKubernetesBackendRole(vc *vault.Client, authPath, name, roleName string, 
 
 		secret, err = vc.Logical().Write(rolePath, map[string]interface{}{
 			"bound_service_account_names":      []string{"*"},
-			"bound_service_account_namespaces": []string{name},
+			"bound_service_account_namespaces": []string{namespace},
 			"policies":                         policies,
 		})
 
@@ -139,7 +139,7 @@ func doKubernetesBackendRole(vc *vault.Client, authPath, name, roleName string, 
 			return err
 		}
 	} else {
-		klog.Infof("backend role in %q for %q already exists", authPath, name)
+		klog.Infof("backend role in %q for %q already exists", authPath, namespace)
 	}
 
 	return nil
@@ -171,7 +171,128 @@ func doMinioRole(vc *vault.Client, authPath, name string) error {
 	return nil
 }
 
-func doVaultConfiguration(vc *vault.Client, profileName string, minioInstances []string, kubernetesAuthPath string) error {
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+//
+// Creates or updates a Vault entity for the owner of the profile where
+// name = <ownerName>
+// policies = kubeflow-profile
+// metadata = {kubeflow_profile=<profileName>}
+// then returns the id of the entity.
+//
+func doEntity(vc *vault.Client, profileName string, ownerName string) (string, error) {
+
+	entityNamePath := fmt.Sprintf("/identity/entity/name/%s", ownerName)
+
+	secret, err := vc.Logical().Read(entityNamePath)
+	if err != nil && !strings.Contains(err.Error(), fmt.Sprintf("No value found at %s", entityNamePath)) {
+		return "", err
+	}
+
+	if secret == nil {
+		secret, err = vc.Logical().Write("identity/entity", map[string]interface{}{
+			"name":     ownerName,
+			"policies": []string{"kubeflow-profile"},
+			"metadata": map[string]string{
+				"kubeflow_profile": profileName,
+			},
+		})
+
+		if err != nil {
+			return "", err
+		}
+
+		klog.Infof("created entity %s", ownerName)
+	} else {
+		var payload = map[string]interface{}{}
+		var shouldUpdate = false
+
+		// Check to see if the kubeflow_profile metadata is present, add if not
+		if secret.Data["metadata"].(map[string]string)["kubeflow_profile"] == "" {
+			payload["metadata"] = secret.Data["metadata"]
+			payload["metadata"].(map[string]string)["kubeflow_profile"] = profileName
+			shouldUpdate = true
+		}
+
+		// Check to see if the kubeflow-profile policy is assigned, if not add
+		if !contains(secret.Data["policies"].([]string), "kubeflow-profile") {
+			payload["policies"] = append(secret.Data["policies"].([]string), "kubeflow-profile")
+			shouldUpdate = true
+		}
+
+		if shouldUpdate {
+			var entityIdPath = fmt.Sprintf("identity/entity/id/%s", secret.Data["id"].(string))
+			secret, err = vc.Logical().Write(entityIdPath, payload)
+
+			if err == nil {
+				klog.Infof("updated entity %s", ownerName)
+			} else {
+				return "", err
+			}
+		} else {
+			klog.Infof("entity %s already exists", ownerName)
+		}
+	}
+
+	return secret.Data["id"].(string), nil
+}
+
+// checks to see if the alias is a part of the supplied array
+func hasAlias(aliases []map[string]interface{}, mountAccessor string, aliasName string) bool {
+	for _, alias := range aliases {
+		if alias["name"].(string) == aliasName && alias["mount_accessor"].(string) == mountAccessor {
+			return true
+		}
+	}
+
+	return false
+}
+
+//
+// Creates an entity-alias to link an entity to its identity in OIDC if it doesn't exist
+//
+func doEntityAlias(vc *vault.Client, mountAccessor string, entityId string, aliasName string) error {
+
+	entityNamePath := fmt.Sprintf("/identity/entity/id/%s", entityId)
+
+	var secret, err = vc.Logical().Read(entityNamePath)
+	if err != nil {
+		return err
+	}
+
+	if !hasAlias(secret.Data["aliases"].([]map[string]interface{}), mountAccessor, aliasName) {
+		secret, err = vc.Logical().Write("/identity/entity-alias", map[string]interface{}{
+			"name":           aliasName,
+			"mount_accessor": mountAccessor,
+			"canonical_id":   entityId,
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+//
+// Configures Vault to allow for access to Minio instances
+// and the modification of the mount by its owner.
+//
+func doVaultConfiguration(vc *vault.Client,
+	profileName string,
+	ownerName string,
+	minioInstances []string,
+	kubernetesAuthPath string,
+	oidcAuthAccessor string) error {
+
 	name := cleanName(fmt.Sprintf("profile-%s", profileName))
 
 	//
@@ -219,5 +340,26 @@ func doVaultConfiguration(vc *vault.Client, profileName string, minioInstances [
 	}
 
 	klog.Info("done MinIO backend roles")
+
+	//
+	// Create the entity associated to the profile
+	//
+	id, err := doEntity(vc, name, ownerName)
+
+	if err != nil {
+		return err
+	}
+
+	klog.Infof("done creating entity")
+
+	//
+	// Create entity-alias linked to previously created entity
+	//
+	if err := doEntityAlias(vc, oidcAuthAccessor, id, ownerName); err != nil {
+		return err
+	}
+
+	klog.Infof("done creating entity-alias")
+
 	return nil
 }
