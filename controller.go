@@ -619,7 +619,7 @@ func (c *Controller) doPachydermRoleBinding(profile *kubeflowv1.Profile) error {
 	roleBinding, err := c.roleBindingLister.RoleBindings(pachydermNamespace).Get(roleBindingName)
 	// If the resource doesn't exist, we'll create it
 	if errors.IsNotFound(err) {
-		roleBinding, err = c.kubeclientset.RbacV1().RoleBindings(profile.Name).Create(context.TODO(), newPachydermRoleBinding(profile, roleBindingName), metav1.CreateOptions{})
+		roleBinding, err = c.kubeclientset.RbacV1().RoleBindings(pachydermNamespace).Create(context.TODO(), newPachydermRoleBinding(profile, roleBindingName), metav1.CreateOptions{})
 	}
 
 	// If an error occurs during Get/Create, we'll requeue the item so we can
