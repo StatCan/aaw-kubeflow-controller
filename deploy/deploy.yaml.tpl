@@ -122,7 +122,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: pachyderm-profile-configurator
-  namespace: pacyhderm
+  namespace: pachyderm
 rules:
 - apiGroups:
     - ''
@@ -140,6 +140,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: pachyderm-profile-configurator
+  namespace: pachyderm
 subjects:
 - kind: ServiceAccount
   name: profile-configurator
