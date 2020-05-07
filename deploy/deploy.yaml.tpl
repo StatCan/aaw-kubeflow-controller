@@ -125,7 +125,7 @@ metadata:
   namespace: pachyderm
 rules:
 - apiGroups:
-    - ''
+    - rbac.authorization.k8s.io
   resources:
     - 'rolebindings'
   verbs:
@@ -148,6 +148,20 @@ subjects:
 roleRef:
   kind: Role
   name: pachyderm-profile-configurator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pachyderm-role-profile-configurator
+  namespace: pachyderm
+subjects:
+- kind: ServiceAccount
+  name: profile-configurator
+  namespace: daaas
+roleRef:
+  kind: Role
+  name: pachyderm-role
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: v1
