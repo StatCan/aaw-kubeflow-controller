@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"time"
 
-	vault "github.com/hashicorp/vault/api"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -83,10 +82,7 @@ type Controller struct {
 
 	dockerConfigJSON []byte
 
-	vaultClient        *vault.Client
-	minioInstances     []string
-	kubernetesAuthPath string
-	oidcAuthAccessor   string
+	vaultConfigurer VaultConfigurer
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -108,10 +104,7 @@ func NewController(
 	serviceAccountInformer v1informers.ServiceAccountInformer,
 	profileInformer informers.ProfileInformer,
 	dockerConfigJSON []byte,
-	vaultClient *vault.Client,
-	minioInstances []string,
-	kubernetesAuthPath string,
-	oidcAuthAccessor string) *Controller {
+	vaultConfigurer VaultConfigurer) *Controller {
 
 	// Create event broadcaster
 	// Add kubeflow-controller types to the default Kubernetes Scheme so Events can be
@@ -135,10 +128,7 @@ func NewController(
 		profilesLister:       profileInformer.Lister(),
 		profilesSynced:       profileInformer.Informer().HasSynced,
 		dockerConfigJSON:     dockerConfigJSON,
-		vaultClient:          vaultClient,
-		minioInstances:       minioInstances,
-		kubernetesAuthPath:   kubernetesAuthPath,
-		oidcAuthAccessor:     oidcAuthAccessor,
+		vaultConfigurer:      vaultConfigurer,
 		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Profiles"),
 		recorder:             recorder,
 	}
@@ -478,7 +468,8 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	// Configure vault
-	err = doVaultConfiguration(c.vaultClient, profile.Name, profile.Spec.Owner.Name, c.minioInstances, c.kubernetesAuthPath, c.oidcAuthAccessor)
+	err = c.vaultConfigurer.ConfigVaultForProfile(profile.Name, profile.Spec.Owner.Name, []string{})
+	//doVaultConfiguration(c.vaultClient, profile.Name, profile.Spec.Owner.Name, c.minioInstances, c.kubernetesAuthPath, c.oidcAuthAccessor)
 
 	// If an error occurs during Update, we'll requeue the item so we can
 	// attempt processing again later. This could have been caused by a
