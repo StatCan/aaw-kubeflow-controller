@@ -95,7 +95,11 @@ func main() {
 		klog.Fatalf("Error initializing Vault client: %s", err)
 	}
 
-	vaultConfigurer := NewVaultConfigurer(vc, kubernetesAuthPath, oidcAuthAccessor, strings.Split(minioInstances, ","))
+	var vaultConfigurer VaultConfigurer
+	vaultConfigurer = NewVaultConfigurer(vc,
+		kubernetesAuthPath,
+		oidcAuthAccessor,
+		strings.Split(minioInstances, ","))
 
 	controller := NewController(kubeClient,
 		kubeflowClient,
