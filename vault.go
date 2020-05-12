@@ -142,6 +142,10 @@ func (vc *VaultConfigurerStruct) doPolicy(name string, mountName string) (string
 		if err != nil {
 			return name, err
 		}
+
+		klog.Infof("policy %q created/updated", name)
+	} else {
+		klog.Infof("policy %q already exists", name)
 	}
 
 	return name, nil
@@ -215,13 +219,18 @@ func (vc *VaultConfigurerStruct) doKubernetesBackendRole(namespace, roleName, po
 
 	var payload map[string]interface{}
 	var operation string
+
+	policies := []string{DEFAULT, policyName}
+	namespaces := []string{namespace}
+	serviceAccounts := []string{"*"}
+
 	if secret == nil {
 		klog.Infof("creating backend role in %q for %q", vc.KubernetesAuthPath, roleName)
 
 		payload = map[string]interface{}{
-			"bound_service_account_names":      []string{"*"},
-			"bound_service_account_namespaces": []string{namespace},
-			"token_policies":                   []string{DEFAULT, policyName},
+			"bound_service_account_names":      serviceAccounts,
+			"bound_service_account_namespaces": namespaces,
+			"token_policies":                   policies,
 		}
 
 		operation = "created"
@@ -229,15 +238,12 @@ func (vc *VaultConfigurerStruct) doKubernetesBackendRole(namespace, roleName, po
 		//If not in right state reconfigure the role
 		operation = "updated"
 
-		serviceAccounts := []string{"*"}
 		key := "bound_service_account_names"
 		payload = setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), serviceAccounts)
 
-		namespaces := []string{namespace}
 		key = "bound_service_account_namespaces"
 		payload = setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), namespaces)
 
-		policies := []string{DEFAULT, policyName}
 		key = "token_policies"
 		payload = setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), policies)
 	}
@@ -305,9 +311,9 @@ func (vc *VaultConfigurerStruct) doEntity(name string) (string, error) {
 		if err != nil {
 			return entityId, err
 		}
-		klog.Infof("created entity %s", name)
+		klog.Infof("created entity %q", name)
 	} else {
-		klog.Infof("entity already created for %s", name)
+		klog.Infof("entity already created for %q", name)
 	}
 	entityId = secret.Data["id"].(string)
 
@@ -361,13 +367,13 @@ func (vc *VaultConfigurerStruct) doEntityAlias(entityName string) error {
 			return err
 		}
 
-		klog.Infof("created/update entity-alias for %s", entityName)
+		klog.Infof("created/update entity-alias for %q", entityName)
 
 		if secret == nil {
 			klog.Warning("vault returned an empty response, there may be an issue")
 		}
 	} else {
-		klog.Infof("entity-alias already built for %s", entityName)
+		klog.Infof("entity-alias already built for %q", entityName)
 	}
 
 	return nil
@@ -383,9 +389,11 @@ func (vc *VaultConfigurerStruct) doGroup(profileName, policyName string, entityI
 
 	var payload map[string]interface{}
 	var operation string
+	policies := []string{policyName, DEFAULT}
+
 	if secret == nil {
 		payload = map[string]interface{}{
-			"policies":          []string{policyName},
+			"policies":          policies,
 			"member_entity_ids": entityIds,
 			"type":              "internal",
 			"metadata": map[string]string{
@@ -395,9 +403,9 @@ func (vc *VaultConfigurerStruct) doGroup(profileName, policyName string, entityI
 
 		operation = "created"
 	} else {
+		klog.Infof("group %q already exists", profileName)
 		operation = "updated"
 
-		policies := []string{policyName, DEFAULT}
 		key := "policies"
 		payload = setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), policies)
 
@@ -410,9 +418,8 @@ func (vc *VaultConfigurerStruct) doGroup(profileName, policyName string, entityI
 		if err != nil {
 			return err
 		}
+		klog.Infof("%s group for %q", operation, profileName)
 	}
-
-	klog.Infof("%s group for %s", operation, profileName)
 
 	return nil
 }
