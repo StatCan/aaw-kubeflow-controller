@@ -469,7 +469,6 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Configure vault
 	err = c.vaultConfigurer.ConfigVaultForProfile(profile.Name, profile.Spec.Owner.Name, []string{})
-	//doVaultConfiguration(c.vaultClient, profile.Name, profile.Spec.Owner.Name, c.minioInstances, c.kubernetesAuthPath, c.oidcAuthAccessor)
 
 	// If an error occurs during Update, we'll requeue the item so we can
 	// attempt processing again later. This could have been caused by a

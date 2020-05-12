@@ -123,7 +123,7 @@ func generatePolicy(name string, minioInstances []string) (string, error) {
 }
 
 // Writes a policy to Vault
-func (vc *VaultConfigurerStruct) doPolicy(name string, mountName string) (string, error) {
+func (vc *VaultConfigurerStruct) doPolicy(name string) (string, error) {
 	policy, err := generatePolicy(name, vc.MinioInstances)
 	if err != nil {
 		return name, err
@@ -162,12 +162,12 @@ func hasMount(mounts map[string]*vault.MountOutput, mountName string) bool {
 }
 
 // creates a KV secret store for the profile
-func (vc *VaultConfigurerStruct) doKVMount(name string) (string, error) {
+func (vc *VaultConfigurerStruct) doKVMount(name string) error {
 	mountName := fmt.Sprintf("kv_%s", name)
 
 	mounts, err := vc.Mounts.ListMounts()
 	if err != nil {
-		return mountName, err
+		return err
 	}
 
 	if !hasMount(mounts, mountName) {
@@ -181,13 +181,13 @@ func (vc *VaultConfigurerStruct) doKVMount(name string) (string, error) {
 			},
 		})
 		if err != nil {
-			return mountName, err
+			return err
 		}
 	} else {
 		klog.Infof("mount %q already exists", mountName)
 	}
 
-	return mountName, nil
+	return nil
 }
 
 // sets a value for a key if it isn't equal
@@ -432,9 +432,8 @@ func (vc *VaultConfigurerStruct) ConfigVaultForProfile(profileName, ownerName st
 	// Let's do for a KeyVault mount
 	// for the profile.
 	//
-	var mountName string
 	var err error
-	if mountName, err = vc.doKVMount(prefixedProfileName); err != nil {
+	if err = vc.doKVMount(prefixedProfileName); err != nil {
 		return err
 	}
 
@@ -446,7 +445,7 @@ func (vc *VaultConfigurerStruct) ConfigVaultForProfile(profileName, ownerName st
 	// ensure it has the right value.
 	//
 	var policyName string
-	if policyName, err = vc.doPolicy(prefixedProfileName, mountName); err != nil {
+	if policyName, err = vc.doPolicy(prefixedProfileName); err != nil {
 		return err
 	}
 
@@ -466,11 +465,11 @@ func (vc *VaultConfigurerStruct) ConfigVaultForProfile(profileName, ownerName st
 	//
 	// Add MinIO role
 	//
-	//for _, instance := range vc.MinioInstances {
-	//	if err := vc.doMinioRole(instance, prefixedProfileName); err != nil {
-	//		return err
-	//	}
-	//}
+	for _, instance := range vc.MinioInstances {
+		if err := vc.doMinioRole(instance, prefixedProfileName); err != nil {
+			return err
+		}
+	}
 
 	klog.Info("done MinIO backend roles")
 
