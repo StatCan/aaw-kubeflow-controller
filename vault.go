@@ -397,7 +397,7 @@ func (vc *VaultConfigurerStruct) doGroup(profileName, policyName string, entityI
 	} else {
 		operation = "updated"
 
-		policies := []string{policyName, "root"}
+		policies := []string{policyName, DEFAULT}
 		key := "policies"
 		payload = setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), policies)
 
@@ -459,11 +459,11 @@ func (vc *VaultConfigurerStruct) ConfigVaultForProfile(profileName, ownerName st
 	//
 	// Add MinIO role
 	//
-	for _, instance := range vc.MinioInstances {
-		if err := vc.doMinioRole(instance, prefixedProfileName); err != nil {
-			return err
-		}
-	}
+	//for _, instance := range vc.MinioInstances {
+	//	if err := vc.doMinioRole(instance, prefixedProfileName); err != nil {
+	//		return err
+	//	}
+	//}
 
 	klog.Info("done MinIO backend roles")
 
