@@ -10,6 +10,7 @@ import (
 	"k8s.io/klog"
 )
 
+// Create a VaultConfigurerStruct that implements the VaultConfigurer
 func NewVaultConfigurer(vc *vault.Client, kubePath, oidcAccessor string, minioInstances []string) *VaultConfigurerStruct {
 	return &VaultConfigurerStruct{
 		Logical:            &LogicalWrapper{vc.Logical()},
@@ -186,7 +187,7 @@ func (vc *VaultConfigurerStruct) doKVMount(name string) (string, error) {
 }
 
 // sets a value for a key if it isn't equal
-func setValueIfNotEquals(payload map[string]interface{}, key string, actual []interface{}, expected []string) {
+func setValueIfNotEquals(payload map[string]interface{}, key string, actual []interface{}, expected []string) map[string]interface{} {
 
 	sactual := make([]string, len(actual))
 	for i, s := range actual {
@@ -200,6 +201,8 @@ func setValueIfNotEquals(payload map[string]interface{}, key string, actual []in
 		}
 		payload[key] = expected
 	}
+
+	return payload
 }
 
 func (vc *VaultConfigurerStruct) doKubernetesBackendRole(namespace, roleName, policyName string) error {
@@ -218,7 +221,7 @@ func (vc *VaultConfigurerStruct) doKubernetesBackendRole(namespace, roleName, po
 		payload = map[string]interface{}{
 			"bound_service_account_names":      []string{"*"},
 			"bound_service_account_namespaces": []string{namespace},
-			"policies":                         []string{DEFAULT, policyName},
+			"token_policies":                   []string{DEFAULT, policyName},
 		}
 
 		operation = "created"
@@ -228,15 +231,15 @@ func (vc *VaultConfigurerStruct) doKubernetesBackendRole(namespace, roleName, po
 
 		serviceAccounts := []string{"*"}
 		key := "bound_service_account_names"
-		setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), serviceAccounts)
+		payload = setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), serviceAccounts)
 
 		namespaces := []string{namespace}
 		key = "bound_service_account_namespaces"
-		setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), namespaces)
+		payload = setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), namespaces)
 
 		policies := []string{DEFAULT, policyName}
-		key = "policies"
-		setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), policies)
+		key = "token_policies"
+		payload = setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), policies)
 	}
 
 	if payload != nil {
@@ -394,12 +397,12 @@ func (vc *VaultConfigurerStruct) doGroup(profileName, policyName string, entityI
 	} else {
 		operation = "updated"
 
-		policies := []string{policyName}
+		policies := []string{policyName, "root"}
 		key := "policies"
-		setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), policies)
+		payload = setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), policies)
 
 		key = "member_entity_ids"
-		setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), entityIds)
+		payload = setValueIfNotEquals(payload, key, secret.Data[key].([]interface{}), entityIds)
 	}
 
 	if payload != nil {
