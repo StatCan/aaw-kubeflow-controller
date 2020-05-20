@@ -13,6 +13,8 @@ import (
 // You can easily setup an vault instance by running
 //  docker run --cap-add=IPC_LOCK -d -e VAULT_DEV_ROOT_TOKEN_ID=kubeflow-controller --name=dev-vault -p 8200:8200 vault
 //
+// TODO: Add a reduced policy for the token instead of root
+// TODO: Use the vault-minio image and config it to use the minio plugin
 
 const VAULT_ADDR = "http://localhost:8200"
 const VAULT_TOKEN = "kubeflow-controller"
