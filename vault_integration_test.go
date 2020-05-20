@@ -15,7 +15,7 @@ import (
 //
 
 const VAULT_ADDR = "http://localhost:8200"
-const VAULT_TOKEN = "s.BChXYjwrRqoJcJuuhRqUqTnu"
+const VAULT_TOKEN = "kubeflow-controller"
 const kubernetesTestPath = "kubernetes"
 
 var minioTestInstances = []string{"minio1", "minio2"}
@@ -104,12 +104,10 @@ func TestConfigureVaultForProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//oidcAccessor, err := setupVault(t, vaultClient)
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
-
-	oidcAccessor := "auth_oidc_66b1b03b"
+	oidcAccessor, err := setupVault(t, vaultClient)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	vaultConfigurer := NewVaultConfigurer(vaultClient, kubernetesTestPath, oidcAccessor, minioTestInstances)
 
