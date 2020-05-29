@@ -104,6 +104,17 @@ rules:
   verbs:
     - create
     - patch
+- apiGroups:
+    - rbac.authorization.k8s.io
+  resources:
+    - 'rolebindings'
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -207,3 +218,16 @@ rules:
   - seldondeployments
   verbs:
   - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: seldon-profile-configurator
+subjects:
+- kind: ServiceAccount
+  name: profile-configurator
+  namespace: daaas
+roleRef:
+  kind: ClusterRole
+  name: seldon-user
+  apiGroup: rbac.authorization.k8s.io
