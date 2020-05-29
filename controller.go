@@ -753,7 +753,7 @@ func newSeldonRoleBinding(profile *kubeflowv1.Profile, name string) *rbacv1.Role
 				Name:      "default-editor",
 				Namespace: profile.Name,
 			},
-			profile.Owner,
+			profile.Spec.Owner,
 		},
 	}
 }
