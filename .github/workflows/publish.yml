@@ -39,6 +39,13 @@ jobs:
         docker build -f Dockerfile -t ${{ env.REGISTRY_NAME }}.azurecr.io/kubeflow-controller:${{ github.sha }} .
         docker push ${{ env.REGISTRY_NAME }}.azurecr.io/kubeflow-controller:${{ github.sha }}
 
+    # Scan image for vulnerabilities
+    - uses: Azure/container-scan@v0
+      with:
+        image-name: ${{ env.REGISTRY_NAME }}.azurecr.io/kubeflow-controller:${{ github.sha }}
+        severity-threshold: CRITICAL
+        run-quality-checks: false
+
     # Prepare to deploy the image
     - run: |
         export IMAGE_SHA=${{ github.sha }}
