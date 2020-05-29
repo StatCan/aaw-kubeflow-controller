@@ -689,13 +689,13 @@ func newPachydermRoleBinding(profile *kubeflowv1.Profile, name string) *rbacv1.R
 }
 
 func (c *Controller) doSeldonRoleBinding(profile *kubeflowv1.Profile) error {
-	roleBindingName := fmt.Sprintf("profile-%s", profile.Name)
+	roleBindingName := "seldon-user"
 
 	// Get the PodDefault with the name specified in Profile.spec
-	roleBinding, err := c.roleBindingLister.RoleBindings(pachydermNamespace).Get(roleBindingName)
+	roleBinding, err := c.roleBindingLister.RoleBindings(profile.Name).Get(roleBindingName)
 	// If the resource doesn't exist, we'll create it
 	if errors.IsNotFound(err) {
-		roleBinding, err = c.kubeclientset.RbacV1().RoleBindings(pachydermNamespace).Create(context.TODO(), newSeldonRoleBinding(profile, roleBindingName), metav1.CreateOptions{})
+		roleBinding, err = c.kubeclientset.RbacV1().RoleBindings(profile.Name).Create(context.TODO(), newSeldonRoleBinding(profile, roleBindingName), metav1.CreateOptions{})
 	}
 
 	// If an error occurs during Get/Create, we'll requeue the item so we can
