@@ -195,3 +195,15 @@ data:
     "vault" = {
       "address" = "${VAULT_ADDR}"
     }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: seldon-user
+rules:
+- apiGroups:
+  - machinelearning.seldon.io
+  resources:
+  - seldondeployments
+  verbs:
+  - '*'
