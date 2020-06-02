@@ -468,7 +468,26 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	// Configure vault
-	err = c.vaultConfigurer.ConfigVaultForProfile(profile.Name, profile.Spec.Owner.Name, []string{})
+	//Get users that have access to the namespace
+	roleBindingsList, err := c.kubeclientset.RbacV1beta1().ClusterRoleBindings().List(context.TODO(), metav1.ListOptions{
+		FieldSelector: "metadata.namespace=" + profile.Name,
+	})
+	if err != nil {
+		return err
+	}
+
+	users := make([]string, 0)
+	for _, currentRoleBinding := range roleBindingsList.Items {
+		if currentRoleBinding.RoleRef.Name == "kubeflow-edit" {
+			for _, subject := range currentRoleBinding.Subjects {
+				if subject.Kind == "User" {
+					users = append(users, subject.Name)
+				}
+			}
+		}
+	}
+
+	err = c.vaultConfigurer.ConfigVaultForProfile(profile.Name, profile.Spec.Owner.Name, users)
 
 	// If an error occurs during Update, we'll requeue the item so we can
 	// attempt processing again later. This could have been caused by a
