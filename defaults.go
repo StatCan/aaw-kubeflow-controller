@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeflowv1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
@@ -17,10 +15,6 @@ var (
 	// PodDefaults contains the map of registered PodDefaults.
 	PodDefaults = make(map[string]NewPodDefaultFunc)
 )
-
-func cleanName(name string) string {
-	return strings.ReplaceAll(name, "_", "-")
-}
 
 // RegisterPodDefault registers a new PodDefault.
 // NOTE: The object name returned MUST match the registered name.

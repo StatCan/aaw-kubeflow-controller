@@ -1,5 +1,7 @@
 package main
 
+import "strings"
+
 // StringArrayContains checks if a value is within a string array.
 func StringArrayContains(strings []string, str string) bool {
 	for _, cstr := range strings {
@@ -52,4 +54,8 @@ func FindMissingStrings(strings, expectedStrings []string) []string {
 	} else {
 		return nil
 	}
+}
+
+func cleanName(name string) string {
+	return strings.ReplaceAll(name, "_", "-")
 }
