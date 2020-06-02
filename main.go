@@ -105,6 +105,7 @@ func main() {
 		kubeflowInformerFactory.Kubeflow().V1alpha1().PodDefaults(),
 		kubeInformerFactory.Core().V1().Secrets(),
 		kubeInformerFactory.Core().V1().ServiceAccounts(),
+		kubeInformerFactory.Rbac().V1().RoleBindings(),
 		kubeflowInformerFactory.Kubeflow().V1().Profiles(),
 		[]byte(imagePullSecret),
 		vaultConfigurer)

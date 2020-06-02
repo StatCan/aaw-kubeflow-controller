@@ -23,15 +23,18 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	v1informers "k8s.io/client-go/informers/core/v1"
+	rbacv1informers "k8s.io/client-go/informers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	v1listers "k8s.io/client-go/listers/core/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -48,6 +51,7 @@ import (
 )
 
 const controllerAgentName = "kubeflow-controller"
+const pachydermNamespace = "pachyderm"
 
 const (
 	// SuccessSynced is used as part of the Event 'reason' when a Profile is synced
@@ -77,6 +81,8 @@ type Controller struct {
 	secretsSynced        cache.InformerSynced
 	serviceAccountLister v1listers.ServiceAccountLister
 	serviceAccountSynced cache.InformerSynced
+	roleBindingLister    rbacv1listers.RoleBindingLister
+	roleBindingSynced    cache.InformerSynced
 	profilesLister       listers.ProfileLister
 	profilesSynced       cache.InformerSynced
 
@@ -102,6 +108,7 @@ func NewController(
 	podDefaultInformer v1alpha1informers.PodDefaultInformer,
 	secretInformer v1informers.SecretInformer,
 	serviceAccountInformer v1informers.ServiceAccountInformer,
+	roleBindingInformer rbacv1informers.RoleBindingInformer,
 	profileInformer informers.ProfileInformer,
 	dockerConfigJSON []byte,
 	vaultConfigurer VaultConfigurer) *Controller {
@@ -125,6 +132,8 @@ func NewController(
 		secretsSynced:        secretInformer.Informer().HasSynced,
 		serviceAccountLister: serviceAccountInformer.Lister(),
 		serviceAccountSynced: serviceAccountInformer.Informer().HasSynced,
+		roleBindingLister:    roleBindingInformer.Lister(),
+		roleBindingSynced:    roleBindingInformer.Informer().HasSynced,
 		profilesLister:       profileInformer.Lister(),
 		profilesSynced:       profileInformer.Informer().HasSynced,
 		dockerConfigJSON:     dockerConfigJSON,
@@ -198,6 +207,27 @@ func NewController(
 			if newPD.ResourceVersion == oldPD.ResourceVersion {
 				// Periodic resync will send update events for all known Deployments.
 				// Two different versions of the same Deployment will always have different RVs.
+				return
+			}
+			controller.handleObject(new)
+		},
+		DeleteFunc: controller.handleObject,
+	})
+
+	// Set up an event handler for when RoleBinding resources change. This
+	// handler will lookup the owner of the given RoleBinding, and if it is
+	// owned by a Profile resource will enqueue that Profile resource for
+	// processing. This way, we don't need to implement custom logic for
+	// handling ServiceAccount resources. More info on this pattern:
+	// https://github.com/kubernetes/community/blob/8cafef897a22026d42f5e5bb3f104febe7e29830/contributors/devel/controllers.md
+	roleBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.handleObject,
+		UpdateFunc: func(old, new interface{}) {
+			newPD := new.(*rbacv1.RoleBinding)
+			oldPD := old.(*rbacv1.RoleBinding)
+			if newPD.ResourceVersion == oldPD.ResourceVersion {
+				// Periodic resync will send update events for all known RoleBinding.
+				// Two different versions of the same RoleBinding will always have different RVs.
 				return
 			}
 			controller.handleObject(new)
@@ -467,6 +497,20 @@ func (c *Controller) syncHandler(key string) error {
 		}
 	}
 
+	// Configure pachyderm role binding
+	err = c.doPachydermRoleBinding(profile)
+
+	if err != nil {
+		return err
+	}
+
+	// Configure seldon role binding
+	err = c.doSeldonRoleBinding(profile)
+
+	if err != nil {
+		return err
+	}
+
 	// Configure vault
 	//Get users that have access to the namespace
 	roleBindingsList, err := c.kubeclientset.RbacV1beta1().ClusterRoleBindings().List(context.TODO(), metav1.ListOptions{
@@ -585,6 +629,145 @@ func newImagePullSecret(profile *kubeflowv1.Profile, dockerConfigJSON []byte) *v
 		Type: v1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
 			".dockerconfigjson": dockerConfigJSON,
+		},
+	}
+}
+
+func (c *Controller) doPachydermRoleBinding(profile *kubeflowv1.Profile) error {
+	roleBindingName := fmt.Sprintf("profile-%s", profile.Name)
+
+	// Get the PodDefault with the name specified in Profile.spec
+	roleBinding, err := c.roleBindingLister.RoleBindings(pachydermNamespace).Get(roleBindingName)
+	// If the resource doesn't exist, we'll create it
+	if errors.IsNotFound(err) {
+		roleBinding, err = c.kubeclientset.RbacV1().RoleBindings(pachydermNamespace).Create(context.TODO(), newPachydermRoleBinding(profile, roleBindingName), metav1.CreateOptions{})
+	}
+
+	// If an error occurs during Get/Create, we'll requeue the item so we can
+	// attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return err
+	}
+
+	// If the Deployment is not controlled by this Profile resource, we should log
+	// a warning to the event recorder and return error msg.
+	if !metav1.IsControlledBy(roleBinding, profile) {
+		msg := fmt.Sprintf(MessageResourceExists, roleBinding.Name)
+		c.recorder.Event(profile, v1.EventTypeWarning, ErrResourceExists, msg)
+		return fmt.Errorf(msg)
+	}
+
+	// TODO: LOGIC TO COMPARE THE PODDEFAULTS AGAINST EXPECTED STATE.
+	//
+	// If this number of the replicas on the Profile resource is specified, and the
+	// number does not equal the current desired replicas on the Deployment, we
+	// should update the Deployment resource.
+	// if profile.Spec.Replicas != nil && *profile.Spec.Replicas != *deployment.Spec.Replicas {
+	// 	klog.V(4).Infof("Profile %s replicas: %d, deployment replicas: %d", name, *profile.Spec.Replicas, *deployment.Spec.Replicas)
+	// 	podDefault, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newPodDefault(profile), metav1.UpdateOptions{})
+	// }
+
+	// If an error occurs during Update, we'll requeue the item so we can
+	// attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func newPachydermRoleBinding(profile *kubeflowv1.Profile, name string) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: pachydermNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(profile, kubeflowv1.SchemeGroupVersion.WithKind("Profile")),
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     "pachyderm-role",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      "default-editor",
+				Namespace: profile.Name,
+			},
+		},
+	}
+}
+
+func (c *Controller) doSeldonRoleBinding(profile *kubeflowv1.Profile) error {
+	roleBindingName := "seldon-user"
+
+	// Get the PodDefault with the name specified in Profile.spec
+	roleBinding, err := c.roleBindingLister.RoleBindings(profile.Name).Get(roleBindingName)
+	// If the resource doesn't exist, we'll create it
+	if errors.IsNotFound(err) {
+		roleBinding, err = c.kubeclientset.RbacV1().RoleBindings(profile.Name).Create(context.TODO(), newSeldonRoleBinding(profile, roleBindingName), metav1.CreateOptions{})
+	}
+
+	// If an error occurs during Get/Create, we'll requeue the item so we can
+	// attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return err
+	}
+
+	// If the Deployment is not controlled by this Profile resource, we should log
+	// a warning to the event recorder and return error msg.
+	if !metav1.IsControlledBy(roleBinding, profile) {
+		msg := fmt.Sprintf(MessageResourceExists, roleBinding.Name)
+		c.recorder.Event(profile, v1.EventTypeWarning, ErrResourceExists, msg)
+		return fmt.Errorf(msg)
+	}
+
+	// TODO: LOGIC TO COMPARE THE PODDEFAULTS AGAINST EXPECTED STATE.
+	//
+	// If this number of the replicas on the Profile resource is specified, and the
+	// number does not equal the current desired replicas on the Deployment, we
+	// should update the Deployment resource.
+	// if profile.Spec.Replicas != nil && *profile.Spec.Replicas != *deployment.Spec.Replicas {
+	// 	klog.V(4).Infof("Profile %s replicas: %d, deployment replicas: %d", name, *profile.Spec.Replicas, *deployment.Spec.Replicas)
+	// 	podDefault, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newPodDefault(profile), metav1.UpdateOptions{})
+	// }
+
+	// If an error occurs during Update, we'll requeue the item so we can
+	// attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func newSeldonRoleBinding(profile *kubeflowv1.Profile, name string) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: profile.Name,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(profile, kubeflowv1.SchemeGroupVersion.WithKind("Profile")),
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "seldon-user",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      "default-editor",
+				Namespace: profile.Name,
+			},
+			profile.Spec.Owner,
 		},
 	}
 }

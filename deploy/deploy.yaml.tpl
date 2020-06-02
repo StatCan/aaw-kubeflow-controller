@@ -104,6 +104,17 @@ rules:
   verbs:
     - create
     - patch
+- apiGroups:
+    - rbac.authorization.k8s.io
+  resources:
+    - 'rolebindings'
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -116,6 +127,52 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: profile-configurator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pachyderm-profile-configurator
+  namespace: pachyderm
+rules:
+- apiGroups:
+    - rbac.authorization.k8s.io
+  resources:
+    - 'rolebindings'
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pachyderm-profile-configurator
+  namespace: pachyderm
+subjects:
+- kind: ServiceAccount
+  name: profile-configurator
+  namespace: daaas
+roleRef:
+  kind: Role
+  name: pachyderm-profile-configurator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pachyderm-role-profile-configurator
+  namespace: pachyderm
+subjects:
+- kind: ServiceAccount
+  name: profile-configurator
+  namespace: daaas
+roleRef:
+  kind: Role
+  name: pachyderm-role
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: v1
@@ -149,3 +206,28 @@ data:
     "vault" = {
       "address" = "${VAULT_ADDR}"
     }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: seldon-user
+rules:
+- apiGroups:
+  - machinelearning.seldon.io
+  resources:
+  - seldondeployments
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: seldon-profile-configurator
+subjects:
+- kind: ServiceAccount
+  name: profile-configurator
+  namespace: daaas
+roleRef:
+  kind: ClusterRole
+  name: seldon-user
+  apiGroup: rbac.authorization.k8s.io
