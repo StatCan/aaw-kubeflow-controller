@@ -95,8 +95,7 @@ func main() {
 		klog.Fatalf("Error initializing Vault client: %s", err)
 	}
 
-	var vaultConfigurer VaultConfigurer
-	vaultConfigurer = NewVaultConfigurer(vc,
+	vaultConfigurer := NewVaultConfigurer(vc,
 		kubernetesAuthPath,
 		oidcAuthAccessor,
 		strings.Split(minioInstances, ","))
