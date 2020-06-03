@@ -48,7 +48,7 @@ func init() {
 				},
 				Annotations: map[string]string{
 					"vault.hashicorp.com/agent-inject":                              "true",
-					"vault.hashicorp.com/agent-init-first":                          "true",
+					"vault.hashicorp.com/agent-pre-populate":                        "false",
 					"vault.hashicorp.com/role":                                      roleName,
 					"vault.hashicorp.com/agent-inject-secret-minio-minimal-tenant1": "minio_minimal_tenant1/keys/" + roleName,
 					"vault.hashicorp.com/agent-inject-template-minio-minimal-tenant1": fmt.Sprintf(`
