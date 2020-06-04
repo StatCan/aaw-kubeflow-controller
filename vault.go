@@ -210,7 +210,7 @@ func setValueIfNotEquals(payload map[string]interface{}, key string, actual []in
 }
 
 func (vc *VaultConfigurerStruct) doKubernetesBackendRole(namespace, roleName, policyName string) error {
-	rolePath := fmt.Sprintf("/auth/%s/role/%s", vc.KubernetesAuthPath, roleName)
+	rolePath := fmt.Sprintf("%s/role/%s", vc.KubernetesAuthPath, roleName)
 
 	secret, err := vc.Logical.Read(rolePath)
 	if err != nil {
