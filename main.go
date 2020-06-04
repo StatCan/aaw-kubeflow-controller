@@ -42,6 +42,7 @@ var (
 	imagePullSecret    string
 	minioInstances     string
 	kubernetesAuthPath string
+	oidcAuthAccessor   string
 )
 
 func main() {
@@ -59,6 +60,10 @@ func main() {
 
 	if len(kubernetesAuthPath) == 0 {
 		kubernetesAuthPath = os.Getenv("KUBERNETES_AUTH_PATH")
+	}
+
+	if len(oidcAuthAccessor) == 0 {
+		oidcAuthAccessor = os.Getenv("OIDC_AUTH_ACCESSOR")
 	}
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -90,14 +95,20 @@ func main() {
 		klog.Fatalf("Error initializing Vault client: %s", err)
 	}
 
-	controller := NewController(kubeClient, kubeflowClient,
+	vaultConfigurer := NewVaultConfigurer(vc,
+		kubernetesAuthPath,
+		oidcAuthAccessor,
+		strings.Split(minioInstances, ","))
+
+	controller := NewController(kubeClient,
+		kubeflowClient,
 		kubeflowInformerFactory.Kubeflow().V1alpha1().PodDefaults(),
 		kubeInformerFactory.Core().V1().Secrets(),
 		kubeInformerFactory.Core().V1().ServiceAccounts(),
 		kubeInformerFactory.Rbac().V1().RoleBindings(),
 		kubeflowInformerFactory.Kubeflow().V1().Profiles(),
 		[]byte(imagePullSecret),
-		vc, strings.Split(minioInstances, ","), kubernetesAuthPath)
+		vaultConfigurer)
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
 	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
@@ -113,6 +124,7 @@ func init() {
 	flag.StringVar(&imagePullSecret, "image-pull-secret", "", "Encoded dockerconfigjson for the image pull secret. Ignored if empty.")
 	flag.StringVar(&minioInstances, "minio-instances", "", "MinIO instances to configure in Vault.")
 	flag.StringVar(&kubernetesAuthPath, "kubernetes-auth-path", "", "Kubernetes auth path the configure in Vault.")
+	flag.StringVar(&oidcAuthAccessor, "oidc-auth-accessor", "", "Mount accessor of the OIDC auth.")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 }

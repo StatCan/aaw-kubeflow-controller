@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"time"
 
-	vault "github.com/hashicorp/vault/api"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -89,9 +88,7 @@ type Controller struct {
 
 	dockerConfigJSON []byte
 
-	vaultClient        *vault.Client
-	minioInstances     []string
-	kubernetesAuthPath string
+	vaultConfigurer VaultConfigurer
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -114,7 +111,7 @@ func NewController(
 	roleBindingInformer rbacv1informers.RoleBindingInformer,
 	profileInformer informers.ProfileInformer,
 	dockerConfigJSON []byte,
-	vaultClient *vault.Client, minioInstances []string, kubernetesAuthPath string) *Controller {
+	vaultConfigurer VaultConfigurer) *Controller {
 
 	// Create event broadcaster
 	// Add kubeflow-controller types to the default Kubernetes Scheme so Events can be
@@ -140,9 +137,7 @@ func NewController(
 		profilesLister:       profileInformer.Lister(),
 		profilesSynced:       profileInformer.Informer().HasSynced,
 		dockerConfigJSON:     dockerConfigJSON,
-		vaultClient:          vaultClient,
-		minioInstances:       minioInstances,
-		kubernetesAuthPath:   kubernetesAuthPath,
+		vaultConfigurer:      vaultConfigurer,
 		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Profiles"),
 		recorder:             recorder,
 	}
@@ -517,7 +512,26 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	// Configure vault
-	err = doVaultConfiguration(c.vaultClient, profile.Name, c.minioInstances, c.kubernetesAuthPath)
+	//Get users that have access to the namespace
+	roleBindingsList, err := c.kubeclientset.RbacV1beta1().ClusterRoleBindings().List(context.TODO(), metav1.ListOptions{
+		FieldSelector: "metadata.namespace=" + profile.Name,
+	})
+	if err != nil {
+		return err
+	}
+
+	users := make([]string, 0)
+	for _, currentRoleBinding := range roleBindingsList.Items {
+		if currentRoleBinding.RoleRef.Name == "kubeflow-edit" {
+			for _, subject := range currentRoleBinding.Subjects {
+				if subject.Kind == "User" {
+					users = append(users, subject.Name)
+				}
+			}
+		}
+	}
+
+	err = c.vaultConfigurer.ConfigVaultForProfile(profile.Name, profile.Spec.Owner.Name, users)
 
 	// If an error occurs during Update, we'll requeue the item so we can
 	// attempt processing again later. This could have been caused by a

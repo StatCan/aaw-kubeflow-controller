@@ -66,7 +66,9 @@ populate the `vendor` directory.
 
 ## Purpose
 
-This is an example of how to build a kube-like controller with a single type controlling kubeflow.
+This controller updates the state of Vault to allow access to secrets from OIDC users and from inside a profile's namespace.
+
+![Example object diagram](docs/images/kubeflow-controller.svg)
 
 ## Running
 
