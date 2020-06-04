@@ -52,6 +52,7 @@ jobs:
         export VAULT_AUTH_PATH=${{ secrets.VAULT_AUTH_PATH }}
         export VAULT_ADDR=${{ secrets.VAULT_ADDR }}
         export MINIO_INSTANCES=${{ secrets.MINIO_INSTANCES }}
+        export OIDC_AUTH_ACCESSOR=${{ secrets.OIDC_AUTH_ACCESSOR }}
 
         envsubst < deploy/deploy.yaml.tpl > deploy/deploy.yaml
 
