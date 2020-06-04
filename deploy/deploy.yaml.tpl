@@ -47,7 +47,7 @@ spec:
           - name: KUBERNETES_AUTH_PATH
             value: ${VAULT_AUTH_PATH}
           - name: OIDC_AUTH_ACCESSOR
-            vault: ${OIDC_AUTH_ACCESSOR}
+            value: ${OIDC_AUTH_ACCESSOR}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
