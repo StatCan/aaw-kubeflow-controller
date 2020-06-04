@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"reflect"
 	"time"
 
@@ -513,15 +514,13 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Configure vault
 	//Get users that have access to the namespace
-	roleBindingsList, err := c.kubeclientset.RbacV1beta1().ClusterRoleBindings().List(context.TODO(), metav1.ListOptions{
-		FieldSelector: "metadata.namespace=" + profile.Name,
-	})
+	roleBindings, err := c.roleBindingLister.RoleBindings(profile.Name).List(labels.Nothing())
 	if err != nil {
 		return err
 	}
 
 	users := make([]string, 0)
-	for _, currentRoleBinding := range roleBindingsList.Items {
+	for _, currentRoleBinding := range roleBindings {
 		if currentRoleBinding.RoleRef.Name == "kubeflow-edit" {
 			for _, subject := range currentRoleBinding.Subjects {
 				if subject.Kind == "User" {
