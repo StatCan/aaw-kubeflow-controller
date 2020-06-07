@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"k8s.io/apimachinery/pkg/labels"
 	"reflect"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -513,21 +514,9 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	// Configure vault
-	//Get users that have access to the namespace
-	roleBindings, err := c.roleBindingLister.RoleBindings(profile.Name).List(labels.Nothing())
+	users, err := c.getUsersInProfileNamespace(profile)
 	if err != nil {
 		return err
-	}
-
-	users := make([]string, 0)
-	for _, currentRoleBinding := range roleBindings {
-		if currentRoleBinding.RoleRef.Name == "kubeflow-edit" {
-			for _, subject := range currentRoleBinding.Subjects {
-				if subject.Kind == "User" {
-					users = append(users, subject.Name)
-				}
-			}
-		}
 	}
 
 	err = c.vaultConfigurer.ConfigVaultForProfile(profile.Name, profile.Spec.Owner.Name, users)
@@ -769,4 +758,25 @@ func newSeldonRoleBinding(profile *kubeflowv1.Profile, name string) *rbacv1.Role
 			profile.Spec.Owner,
 		},
 	}
+}
+
+func (c *Controller) getUsersInProfileNamespace(profile *kubeflowv1.Profile) ([]string, error) {
+	//Get users that have access to the namespace
+	roleBindings, err := c.roleBindingLister.RoleBindings(profile.Name).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	users := make([]string, 0)
+	for _, currentRoleBinding := range roleBindings {
+		if strings.Contains(currentRoleBinding.RoleRef.Name, "kubeflow-edit") {
+			for _, subject := range currentRoleBinding.Subjects {
+				if subject.Kind == "User" {
+					users = append(users, subject.Name)
+				}
+			}
+		}
+	}
+
+	return users, nil
 }

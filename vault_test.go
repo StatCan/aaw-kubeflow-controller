@@ -2,7 +2,12 @@ package main
 
 import (
 	vault "github.com/hashicorp/vault/api"
+	"k8s.io/apimachinery/pkg/labels"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"testing"
+	"time"
 )
 
 const expectedPolicy = `
@@ -36,6 +41,29 @@ func TestGeneratePolicy(t *testing.T) {
 	if policy != expectedPolicy {
 		println(policy)
 		t.Fail()
+	}
+}
+
+func TestRoleBindings(t *testing.T) {
+
+	cfg, err := clientcmd.BuildConfigFromFlags("https://k8s-cancentral-02-covid-aks-acdbb14c.hcp.canadacentral.azmk8s.io:443", "C:/Users/justin.bertrand/.kube/config")
+	if err != nil {
+		t.Fatalf("Error building kubeconfig: %s", err.Error())
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		t.Fatalf("Error building kubernetes clientset: %s", err.Error())
+	}
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*1)
+
+	roleBindings, err := kubeInformerFactory.Rbac().V1().RoleBindings().Lister().RoleBindings("zachary-seguin").List(labels.Everything())
+
+	for _, role := range roleBindings {
+		t.Log(role.RoleRef.Name)
+		for _, subject := range role.Subjects {
+			t.Log(subject.Name)
+		}
 	}
 }
 
@@ -75,7 +103,7 @@ func TestDoPolicy_updatePolicy(t *testing.T) {
 		},
 		MinioInstances: []string{"minio1", "minio2"},
 	}
-	policyName, _ := vc.doPolicy("profile-test", "kv_profile-test")
+	policyName, _ := vc.doPolicy("profile-test")
 
 	if policyName != "profile-test" {
 		t.Logf("Expected profile-test as policy name, got %s", policyName)
