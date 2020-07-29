@@ -23,6 +23,7 @@ spec:
         vault.hashicorp.com/agent-inject: "true"
         vault.hashicorp.com/agent-configmap: "profile-configurator-vault-agent-config"
         vault.hashicorp.com/agent-pre-populate: "false"
+        sidecar.istio.io/inject: 'false'
     spec:
       serviceAccountName: profile-configurator
       imagePullSecrets:
