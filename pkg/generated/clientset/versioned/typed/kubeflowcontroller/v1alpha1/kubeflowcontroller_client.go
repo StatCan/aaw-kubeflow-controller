@@ -20,8 +20,8 @@ package v1alpha1
 
 import (
 	rest "k8s.io/client-go/rest"
-	v1alpha1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1alpha1"
-	"k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/scheme"
+	v1alpha1 "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller/v1alpha1"
+	"github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/scheme"
 )
 
 type KubeflowV1alpha1Interface interface {

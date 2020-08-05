@@ -41,14 +41,14 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
-	kubeflowv1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
-	kubeflowv1alpha1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1alpha1"
-	clientset "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned"
-	kubeflowscheme "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/scheme"
-	informers "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1"
-	v1alpha1informers "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1alpha1"
-	listers "k8s.io/kubeflow-controller/pkg/generated/listers/kubeflowcontroller/v1"
-	v1alpha1listers "k8s.io/kubeflow-controller/pkg/generated/listers/kubeflowcontroller/v1alpha1"
+	kubeflowv1 "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
+	kubeflowv1alpha1 "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller/v1alpha1"
+	clientset "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned"
+	kubeflowscheme "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/scheme"
+	informers "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1"
+	v1alpha1informers "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1alpha1"
+	listers "github.com/StatCan/kubeflow-controller/pkg/generated/listers/kubeflowcontroller/v1"
+	v1alpha1listers "github.com/StatCan/kubeflow-controller/pkg/generated/listers/kubeflowcontroller/v1alpha1"
 )
 
 const controllerAgentName = "kubeflow-controller"

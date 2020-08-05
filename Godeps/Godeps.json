@@ -1,5 +1,5 @@
 {
-	"ImportPath": "k8s.io/kubeflow-controller",
+	"ImportPath": "github.com/StatCan/kubeflow-controller",
 	"GoVersion": "unknown",
 	"GodepVersion": "gen-godeps",
 	"Packages": [

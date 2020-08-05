@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	kubeflowcontroller "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller"
+	kubeflowcontroller "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller"
 )
 
 // SchemeGroupVersion is group version used to register these objects

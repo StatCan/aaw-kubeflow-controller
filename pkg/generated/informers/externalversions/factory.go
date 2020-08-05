@@ -27,9 +27,9 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
-	versioned "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned"
-	internalinterfaces "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/internalinterfaces"
-	kubeflowcontroller "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller"
+	versioned "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned"
+	internalinterfaces "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions/internalinterfaces"
+	kubeflowcontroller "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.

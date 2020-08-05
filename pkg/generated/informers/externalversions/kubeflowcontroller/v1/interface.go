@@ -19,7 +19,7 @@ limitations under the License.
 package v1
 
 import (
-	internalinterfaces "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

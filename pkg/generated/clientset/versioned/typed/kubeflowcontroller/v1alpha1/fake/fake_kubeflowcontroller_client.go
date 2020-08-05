@@ -21,7 +21,7 @@ package fake
 import (
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
-	v1alpha1 "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1alpha1"
+	v1alpha1 "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1alpha1"
 )
 
 type FakeKubeflowV1alpha1 struct {

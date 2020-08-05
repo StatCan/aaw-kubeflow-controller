@@ -1,6 +1,6 @@
 // This is a generated file. Do not edit directly.
 
-module k8s.io/kubeflow-controller
+module github.com/StatCan/kubeflow-controller
 
 go 1.13
 

@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
-	v1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
+	v1 "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
 )
 
 // ProfileLister helps list Profiles.

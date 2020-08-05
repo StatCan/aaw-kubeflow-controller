@@ -30,9 +30,9 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
 
-	clientset "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned"
-	informers "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions"
-	"k8s.io/kubeflow-controller/pkg/signals"
+	clientset "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned"
+	informers "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions"
+	"github.com/StatCan/kubeflow-controller/pkg/signals"
 )
 
 var (

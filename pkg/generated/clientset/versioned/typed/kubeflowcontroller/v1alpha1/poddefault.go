@@ -26,8 +26,8 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
-	v1alpha1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1alpha1"
-	scheme "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned/scheme"
+	v1alpha1 "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller/v1alpha1"
+	scheme "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/scheme"
 )
 
 // PodDefaultsGetter has a method to return a PodDefaultInterface.

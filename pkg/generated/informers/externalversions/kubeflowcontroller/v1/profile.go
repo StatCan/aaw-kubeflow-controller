@@ -26,10 +26,10 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	kubeflowcontrollerv1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
-	versioned "k8s.io/kubeflow-controller/pkg/generated/clientset/versioned"
-	internalinterfaces "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/internalinterfaces"
-	v1 "k8s.io/kubeflow-controller/pkg/generated/listers/kubeflowcontroller/v1"
+	kubeflowcontrollerv1 "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
+	versioned "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned"
+	internalinterfaces "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions/internalinterfaces"
+	v1 "github.com/StatCan/kubeflow-controller/pkg/generated/listers/kubeflowcontroller/v1"
 )
 
 // ProfileInformer provides access to a shared informer and lister for

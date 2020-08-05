@@ -27,7 +27,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
-	kubeflowcontrollerv1 "k8s.io/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
+	kubeflowcontrollerv1 "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
 )
 
 // FakeProfiles implements ProfileInterface

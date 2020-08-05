@@ -19,9 +19,9 @@ limitations under the License.
 package kubeflowcontroller
 
 import (
-	internalinterfaces "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/internalinterfaces"
-	v1 "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1"
-	v1alpha1 "k8s.io/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1alpha1"
+	internalinterfaces "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions/internalinterfaces"
+	v1 "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1"
+	v1alpha1 "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1alpha1"
 )
 
 // Interface provides access to each of this group's versions.

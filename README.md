@@ -3,7 +3,7 @@
 This repository implements a simple controller for watching Profile resources as
 defined with a CustomResourceDefinition (CRD).
 
-**Note:** go-get or vendor this package as `k8s.io/kubeflow-controller`.
+**Note:** go-get or vendor this package as `github.com/StatCan/kubeflow-controller`.
 
 This particular example demonstrates how to perform basic operations such as:
 
@@ -43,8 +43,8 @@ go about fetching this demo and its dependencies.
 When NOT using go 1.11 modules, you can use the following commands.
 
 ```sh
-go get -d k8s.io/kubeflow-controller
-cd $GOPATH/src/k8s.io/kubeflow-controller
+go get -d github.com/StatCan/kubeflow-controller
+cd $GOPATH/src/github.com/StatCan/kubeflow-controller
 godep restore
 ```
 
