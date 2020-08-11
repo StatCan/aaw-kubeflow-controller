@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1
 
+// NotebookListerExpansion allows custom methods to be added to
+// NotebookLister.
+type NotebookListerExpansion interface{}
+
+// NotebookNamespaceListerExpansion allows custom methods to be added to
+// NotebookNamespaceLister.
+type NotebookNamespaceListerExpansion interface{}
+
 // ProfileListerExpansion allows custom methods to be added to
 // ProfileLister.
 type ProfileListerExpansion interface{}

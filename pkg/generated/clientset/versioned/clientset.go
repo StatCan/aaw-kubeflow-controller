@@ -21,11 +21,11 @@ package versioned
 import (
 	"fmt"
 
+	kubeflowv1 "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1"
+	kubeflowv1alpha1 "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
-	kubeflowv1 "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1"
-	kubeflowv1alpha1 "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1alpha1"
 )
 
 type Interface interface {

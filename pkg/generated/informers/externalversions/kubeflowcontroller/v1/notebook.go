@@ -32,58 +32,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ProfileInformer provides access to a shared informer and lister for
-// Profiles.
-type ProfileInformer interface {
+// NotebookInformer provides access to a shared informer and lister for
+// Notebooks.
+type NotebookInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ProfileLister
+	Lister() v1.NotebookLister
 }
 
-type profileInformer struct {
+type notebookInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
 }
 
-// NewProfileInformer constructs a new informer for Profile type.
+// NewNotebookInformer constructs a new informer for Notebook type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewProfileInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredProfileInformer(client, resyncPeriod, indexers, nil)
+func NewNotebookInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredNotebookInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredProfileInformer constructs a new informer for Profile type.
+// NewFilteredNotebookInformer constructs a new informer for Notebook type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredProfileInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredNotebookInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KubeflowV1().Profiles().List(context.TODO(), options)
+				return client.KubeflowV1().Notebooks(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KubeflowV1().Profiles().Watch(context.TODO(), options)
+				return client.KubeflowV1().Notebooks(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&kubeflowcontrollerv1.Profile{},
+		&kubeflowcontrollerv1.Notebook{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *profileInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredProfileInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *notebookInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredNotebookInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *profileInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kubeflowcontrollerv1.Profile{}, f.defaultInformer)
+func (f *notebookInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&kubeflowcontrollerv1.Notebook{}, f.defaultInformer)
 }
 
-func (f *profileInformer) Lister() v1.ProfileLister {
-	return v1.NewProfileLister(f.Informer().GetIndexer())
+func (f *notebookInformer) Lister() v1.NotebookLister {
+	return v1.NewNotebookLister(f.Informer().GetIndexer())
 }

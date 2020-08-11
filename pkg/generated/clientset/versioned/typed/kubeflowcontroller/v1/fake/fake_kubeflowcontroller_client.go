@@ -19,13 +19,17 @@ limitations under the License.
 package fake
 
 import (
+	v1 "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
-	v1 "github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/typed/kubeflowcontroller/v1"
 )
 
 type FakeKubeflowV1 struct {
 	*testing.Fake
+}
+
+func (c *FakeKubeflowV1) Notebooks(namespace string) v1.NotebookInterface {
+	return &FakeNotebooks{c, namespace}
 }
 
 func (c *FakeKubeflowV1) Profiles() v1.ProfileInterface {

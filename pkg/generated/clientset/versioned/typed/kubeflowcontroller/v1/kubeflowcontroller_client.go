@@ -19,19 +19,24 @@ limitations under the License.
 package v1
 
 import (
-	rest "k8s.io/client-go/rest"
 	v1 "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
 	"github.com/StatCan/kubeflow-controller/pkg/generated/clientset/versioned/scheme"
+	rest "k8s.io/client-go/rest"
 )
 
 type KubeflowV1Interface interface {
 	RESTClient() rest.Interface
+	NotebooksGetter
 	ProfilesGetter
 }
 
 // KubeflowV1Client is used to interact with features provided by the kubeflow.org group.
 type KubeflowV1Client struct {
 	restClient rest.Interface
+}
+
+func (c *KubeflowV1Client) Notebooks(namespace string) NotebookInterface {
+	return newNotebooks(c, namespace)
 }
 
 func (c *KubeflowV1Client) Profiles() ProfileInterface {
