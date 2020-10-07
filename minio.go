@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"path"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -54,6 +56,12 @@ func (m *MinIOStruct) CreateBucketsForProfile(profileName string) error {
 			if err != nil {
 				return err
 			}
+		}
+
+		// Make shared folder
+		_, err = client.PutObject(context.Background(), "shared", path.Join(profileName, ".hold"), bytes.NewReader([]byte{}), 0, minio.PutObjectOptions{})
+		if err != nil {
+			return err
 		}
 	}
 
