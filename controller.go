@@ -19,9 +19,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
 	"reflect"
 	"time"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -91,6 +92,8 @@ type Controller struct {
 
 	vaultConfigurer VaultConfigurer
 
+	minio MinIO
+
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
 	// means we can ensure we only process a fixed amount of resources at a
@@ -112,7 +115,8 @@ func NewController(
 	roleBindingInformer rbacv1informers.RoleBindingInformer,
 	profileInformer informers.ProfileInformer,
 	dockerConfigJSON []byte,
-	vaultConfigurer VaultConfigurer) *Controller {
+	vaultConfigurer VaultConfigurer,
+	minio MinIO) *Controller {
 
 	// Create event broadcaster
 	// Add kubeflow-controller types to the default Kubernetes Scheme so Events can be
@@ -139,6 +143,7 @@ func NewController(
 		profilesSynced:       profileInformer.Informer().HasSynced,
 		dockerConfigJSON:     dockerConfigJSON,
 		vaultConfigurer:      vaultConfigurer,
+		minio:                minio,
 		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Profiles"),
 		recorder:             recorder,
 	}
@@ -536,6 +541,12 @@ func (c *Controller) syncHandler(key string) error {
 	// attempt processing again later. This could have been caused by a
 	// temporary network failure, or any other transient reason.
 	if err != nil {
+		return err
+	}
+
+	// Configure MinIO
+	// Autocreate MinIO buckets for the user
+	if err = c.minio.CreateBucketsForProfile(profile.Name); err != nil {
 		return err
 	}
 

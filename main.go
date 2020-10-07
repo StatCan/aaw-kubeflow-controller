@@ -95,10 +95,14 @@ func main() {
 		klog.Fatalf("Error initializing Vault client: %s", err)
 	}
 
+	minioInstancesArray := strings.Split(minioInstances, ",")
+
 	vaultConfigurer := NewVaultConfigurer(vc,
 		kubernetesAuthPath,
 		oidcAuthAccessor,
-		strings.Split(minioInstances, ","))
+		minioInstancesArray)
+
+	minio := NewMinIO(minioInstancesArray, vaultConfigurer)
 
 	controller := NewController(kubeClient,
 		kubeflowClient,
@@ -108,7 +112,8 @@ func main() {
 		kubeInformerFactory.Rbac().V1().RoleBindings(),
 		kubeflowInformerFactory.Kubeflow().V1().Profiles(),
 		[]byte(imagePullSecret),
-		vaultConfigurer)
+		vaultConfigurer,
+		minio)
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
 	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.

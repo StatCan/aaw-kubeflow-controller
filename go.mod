@@ -5,7 +5,10 @@ module github.com/StatCan/kubeflow-controller
 go 1.13
 
 require (
+	github.com/go-ini/ini v1.62.0 // indirect
 	github.com/hashicorp/vault/api v1.0.4
+	github.com/minio/minio-go v6.0.14+incompatible // indirect
+	github.com/minio/minio-go/v7 v7.0.5
 	k8s.io/api v0.0.0-20200403220253-fa879b399cd0
 	k8s.io/apimachinery v0.0.0-20200403220105-fa0d5bf06730
 	k8s.io/client-go v0.0.0-20200403220520-7039b495eb3e
