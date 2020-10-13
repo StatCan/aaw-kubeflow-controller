@@ -17,6 +17,7 @@ COPY . .
 RUN CGO_ENABLED=0 go install .
 
 # Generate final image
-FROM scratch
-COPY --from=build /go/bin/kubeflow-controller /kubeflow-controller
-ENTRYPOINT [ "/kubeflow-controller" ]
+FROM alpine:3.12
+RUN apk --update --no-cache add ca-certificates
+COPY --from=build /go/bin/kubeflow-controller /usr/local/bin/kubeflow-controller
+ENTRYPOINT [ "/usr/local/bin/kubeflow-controller" ]
