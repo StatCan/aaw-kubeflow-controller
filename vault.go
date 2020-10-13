@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"path"
 	"strings"
 
 	vault "github.com/hashicorp/vault/api"
@@ -23,6 +24,7 @@ func NewVaultConfigurer(vc *vault.Client, kubePath, oidcAccessor string, minioIn
 
 type VaultConfigurer interface {
 	ConfigVaultForProfile(profileName, ownerName string, users []string) error
+	GetMinIOConfiguration(profileName string) (*MinIOConfiguration, error)
 }
 
 // Defines a configuration object with the constants used to
@@ -499,4 +501,39 @@ func (vc *VaultConfigurerStruct) ConfigVaultForProfile(profileName, ownerName st
 	klog.Infof("done creating group")
 
 	return nil
+}
+
+type MinIOConfiguration struct {
+	AccessKeyID     string `json:"accessKeyId"`
+	Endpoint        string `json:"endpoint"`
+	SecretAccessKey string `json:"secretAccessKey"`
+	UseSSL          bool   `json:"useSSL"`
+}
+
+// GetMinIOConfiguration returns the MinIO configuration.
+func (vc *VaultConfigurerStruct) GetMinIOConfiguration(instance string) (*MinIOConfiguration, error) {
+	data, err := vc.Logical.Read(path.Join(instance, "config"))
+	if err != nil {
+		return nil, err
+	}
+
+	config := MinIOConfiguration{}
+
+	if val, ok := data.Data["accessKeyId"]; ok {
+		config.AccessKeyID = val.(string)
+	}
+
+	if val, ok := data.Data["endpoint"]; ok {
+		config.Endpoint = val.(string)
+	}
+
+	if val, ok := data.Data["secretAccessKey"]; ok {
+		config.SecretAccessKey = val.(string)
+	}
+
+	if val, ok := data.Data["useSSL"]; ok {
+		config.UseSSL = val.(bool)
+	}
+
+	return &config, nil
 }
