@@ -51,11 +51,13 @@ func (m *MinIOStruct) CreateBucketsForProfile(profileName string) error {
 		}
 
 		if !exists {
-			klog.Infof("making bucket %s in instance %s", profileName, instance)
+			klog.Infof("making bucket %q in instance %q", profileName, instance)
 			err = client.MakeBucket(context.Background(), profileName, minio.MakeBucketOptions{})
 			if err != nil {
 				return err
 			}
+		} else {
+			klog.Infof("bucket %q in instance %q already exists", profileName, instance)
 		}
 
 		// Make shared folder
