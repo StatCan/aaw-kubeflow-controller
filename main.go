@@ -84,8 +84,8 @@ func main() {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, time.Second*30)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Minute*5)
+	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, time.Minute*5)
 
 	// Vault
 	vc, err := vault.NewClient(&vault.Config{
