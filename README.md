@@ -103,4 +103,6 @@ Some example use cases:
 
 You can clean up the created CustomResourceDefinition with:
 
+```sh
     kubectl delete crd profiles.kubeflow.org
+```
