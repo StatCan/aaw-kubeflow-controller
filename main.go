@@ -92,9 +92,9 @@ func main() {
 		klog.Fatalf("error building istio client: %v", err)
 	}
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Minute*5)
-	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, time.Minute*5)
-	istioInformerFactory := istioinformers.NewSharedInformerFactory(istioClient, time.Minute*5)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Minute*15)
+	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, time.Minute*15)
+	istioInformerFactory := istioinformers.NewSharedInformerFactory(istioClient, time.Minute*15)
 
 	// Vault
 	vc, err := vault.NewClient(&vault.Config{
