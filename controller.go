@@ -141,6 +141,7 @@ func NewController(
 	controller := &Controller{
 		kubeclientset:        kubeclientset,
 		kubeflowclientset:    kubeflowclientset,
+		istioclientset:       istioclientset,
 		podDefaultsLister:    podDefaultInformer.Lister(),
 		podDefaultsSynced:    podDefaultInformer.Informer().HasSynced,
 		secretsLister:        secretInformer.Lister(),
