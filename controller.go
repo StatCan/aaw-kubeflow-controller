@@ -551,6 +551,13 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
+	// Configure argo role binding
+	err = c.doArgoRoleBinding(profile)
+
+	if err != nil {
+		return err
+	}
+
 	// Configure pipelines-header EnvoyFilter
 	err = c.doPipelinesIstioEnvoyFilter(profile)
 
@@ -811,6 +818,76 @@ func newSeldonRoleBinding(profile *kubeflowv1.Profile, name string) *rbacv1.Role
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
 			Name:     "seldon-user",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      "default-editor",
+				Namespace: profile.Name,
+			},
+			profile.Spec.Owner,
+		},
+	}
+}
+
+func (c *Controller) doArgoRoleBinding(profile *kubeflowv1.Profile) error {
+	roleBindingName := "default-editor-argo"
+
+	// Get the PodDefault with the name specified in Profile.spec
+	roleBinding, err := c.roleBindingLister.RoleBindings(profile.Name).Get(roleBindingName)
+	// If the resource doesn't exist, we'll create it
+	if errors.IsNotFound(err) {
+		roleBinding, err = c.kubeclientset.RbacV1().RoleBindings(profile.Name).Create(context.TODO(), newArgoRoleBinding(profile, roleBindingName), metav1.CreateOptions{})
+	}
+
+	// If an error occurs during Get/Create, we'll requeue the item so we can
+	// attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return err
+	}
+
+	// If the Deployment is not controlled by this Profile resource, we should log
+	// a warning to the event recorder and return error msg.
+	if !metav1.IsControlledBy(roleBinding, profile) {
+		msg := fmt.Sprintf(MessageResourceExists, roleBinding.Name)
+		c.recorder.Event(profile, v1.EventTypeWarning, ErrResourceExists, msg)
+		return fmt.Errorf(msg)
+	}
+
+	// TODO: LOGIC TO COMPARE THE PODDEFAULTS AGAINST EXPECTED STATE.
+	//
+	// If this number of the replicas on the Profile resource is specified, and the
+	// number does not equal the current desired replicas on the Deployment, we
+	// should update the Deployment resource.
+	// if profile.Spec.Replicas != nil && *profile.Spec.Replicas != *deployment.Spec.Replicas {
+	// 	klog.V(4).Infof("Profile %s replicas: %d, deployment replicas: %d", name, *profile.Spec.Replicas, *deployment.Spec.Replicas)
+	// 	podDefault, err = c.kubeclientset.AppsV1().Deployments(profile.Namespace).Update(context.TODO(), newPodDefault(profile), metav1.UpdateOptions{})
+	// }
+
+	// If an error occurs during Update, we'll requeue the item so we can
+	// attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func newArgoRoleBinding(profile *kubeflowv1.Profile, name string) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: profile.Name,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(profile, kubeflowv1.SchemeGroupVersion.WithKind("Profile")),
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "argo",
 		},
 		Subjects: []rbacv1.Subject{
 			{
