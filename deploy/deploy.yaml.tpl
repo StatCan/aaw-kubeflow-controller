@@ -245,3 +245,16 @@ roleRef:
   kind: ClusterRole
   name: seldon-user
   apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argo-profile-configurator
+subjects:
+- kind: ServiceAccount
+  name: profile-configurator
+  namespace: daaas
+roleRef:
+  kind: ClusterRole
+  name: argo
+  apiGroup: rbac.authorization.k8s.io
