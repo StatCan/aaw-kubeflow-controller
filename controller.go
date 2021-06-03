@@ -537,13 +537,6 @@ func (c *Controller) syncHandler(key string) error {
 		}
 	}
 
-	// Configure pachyderm role binding
-	err = c.doPachydermRoleBinding(profile)
-
-	if err != nil {
-		return err
-	}
-
 	// Configure seldon role binding
 	err = c.doSeldonRoleBinding(profile)
 
