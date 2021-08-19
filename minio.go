@@ -35,7 +35,7 @@ func (m *MinIOStruct) CreateBucketsForProfile(profileName string) error {
 	for _, instance := range m.MinioInstances {
 		conf, err := m.VaultConfigurer.GetMinIOConfiguration(instance)
 		if err != nil {
-			return fmt.Errorf("failed reading MinIO configuration: %v", err)
+			return fmt.Errorf("failed reading MinIO configuration for %q: %v", instance, err)
 		}
 
 		client, err := minio.New(conf.Endpoint, &minio.Options{
@@ -43,13 +43,13 @@ func (m *MinIOStruct) CreateBucketsForProfile(profileName string) error {
 			Secure: conf.UseSSL,
 		})
 		if err != nil {
-			return fmt.Errorf("failed configuring MinIO client: %v", err)
+			return fmt.Errorf("failed configuring MinIO client for %q: %v", instance, err)
 		}
 
 		for _, bucket := range []string{profileName, "shared"} {
 			exists, err := client.BucketExists(context.Background(), bucket)
 			if err != nil {
-				return fmt.Errorf("failed checking if bucket exists: %v", err)
+				return fmt.Errorf("failed checking if bucket %q exists in %q: %v", bucket, instance, err)
 			}
 
 			if !exists {
