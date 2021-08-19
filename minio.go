@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"path"
+	"fmt"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -34,7 +35,7 @@ func (m *MinIOStruct) CreateBucketsForProfile(profileName string) error {
 	for _, instance := range m.MinioInstances {
 		conf, err := m.VaultConfigurer.GetMinIOConfiguration(instance)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed reading MinIO configuration: %v", err)
 		}
 
 		client, err := minio.New(conf.Endpoint, &minio.Options{
@@ -42,20 +43,20 @@ func (m *MinIOStruct) CreateBucketsForProfile(profileName string) error {
 			Secure: conf.UseSSL,
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed configuring MinIO client: %v", err)
 		}
 
 		for _, bucket := range []string{profileName, "shared"} {
 			exists, err := client.BucketExists(context.Background(), bucket)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed checking if bucket exists: %v", err)
 			}
 
 			if !exists {
 				klog.Infof("making bucket %q in instance %q", bucket, instance)
 				err = client.MakeBucket(context.Background(), bucket, minio.MakeBucketOptions{})
 				if err != nil {
-					return err
+					return fmt.Errorf("failed making bucket %q in instance %q: %v", bucket, instance, err)
 				}
 			} else {
 				klog.Infof("bucket %q in instance %q already exists", bucket, instance)
@@ -65,7 +66,7 @@ func (m *MinIOStruct) CreateBucketsForProfile(profileName string) error {
 		// Make shared folder
 		_, err = client.PutObject(context.Background(), "shared", path.Join(profileName, ".hold"), bytes.NewReader([]byte{}), 0, minio.PutObjectOptions{})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed writing .hold for %q in %q: %v", profileName, instance, err)
 		}
 	}
 
