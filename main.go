@@ -111,8 +111,6 @@ func main() {
 		oidcAuthAccessor,
 		minioInstancesArray)
 
-	minio := NewMinIO(minioInstancesArray, vaultConfigurer)
-
 	controller := NewController(kubeClient,
 		kubeflowClient,
 		istioClient,
@@ -123,8 +121,7 @@ func main() {
 		kubeflowInformerFactory.Kubeflow().V1().Profiles(),
 		istioInformerFactory.Networking().V1alpha3().EnvoyFilters(),
 		[]byte(imagePullSecret),
-		vaultConfigurer,
-		minio)
+		vaultConfigurer)
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
 	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
