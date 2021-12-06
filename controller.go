@@ -100,8 +100,6 @@ type Controller struct {
 
 	vaultConfigurer VaultConfigurer
 
-	minio MinIO
-
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
 	// means we can ensure we only process a fixed amount of resources at a
@@ -125,8 +123,7 @@ func NewController(
 	profileInformer informers.ProfileInformer,
 	envoyFiltersInformer istionetworkingv1alpha3informers.EnvoyFilterInformer,
 	dockerConfigJSON []byte,
-	vaultConfigurer VaultConfigurer,
-	minio MinIO) *Controller {
+	vaultConfigurer VaultConfigurer) *Controller {
 
 	// Create event broadcaster
 	// Add kubeflow-controller types to the default Kubernetes Scheme so Events can be
@@ -156,7 +153,6 @@ func NewController(
 		envoyFiltersSynced:   envoyFiltersInformer.Informer().HasSynced,
 		dockerConfigJSON:     dockerConfigJSON,
 		vaultConfigurer:      vaultConfigurer,
-		minio:                minio,
 		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Profiles"),
 		recorder:             recorder,
 	}
@@ -582,12 +578,6 @@ func (c *Controller) syncHandler(key string) error {
 	// attempt processing again later. This could have been caused by a
 	// temporary network failure, or any other transient reason.
 	if err != nil {
-		return err
-	}
-
-	// Configure MinIO
-	// Autocreate MinIO buckets for the user
-	if err = c.minio.CreateBucketsForProfile(profile.Name); err != nil {
 		return err
 	}
 
