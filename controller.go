@@ -50,10 +50,6 @@ import (
 	v1alpha1informers "github.com/StatCan/kubeflow-controller/pkg/generated/informers/externalversions/kubeflowcontroller/v1alpha1"
 	listers "github.com/StatCan/kubeflow-controller/pkg/generated/listers/kubeflowcontroller/v1"
 	v1alpha1listers "github.com/StatCan/kubeflow-controller/pkg/generated/listers/kubeflowcontroller/v1alpha1"
-	istionetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	istio "istio.io/client-go/pkg/clientset/versioned"
-	istionetworkingv1alpha3informers "istio.io/client-go/pkg/informers/externalversions/networking/v1alpha3"
-	istionetworkingv1alpha3listers "istio.io/client-go/pkg/listers/networking/v1alpha3"
 )
 
 const controllerAgentName = "kubeflow-controller"
@@ -80,8 +76,6 @@ type Controller struct {
 	kubeclientset kubernetes.Interface
 	// kubeflowclientset is a clientset for our own API group
 	kubeflowclientset clientset.Interface
-	// istioclienset is a clientset for the Istio APIs
-	istioclientset istio.Interface
 
 	podDefaultsLister    v1alpha1listers.PodDefaultLister
 	podDefaultsSynced    cache.InformerSynced
@@ -93,7 +87,6 @@ type Controller struct {
 	roleBindingSynced    cache.InformerSynced
 	profilesLister       listers.ProfileLister
 	profilesSynced       cache.InformerSynced
-	envoyFiltersLister   istionetworkingv1alpha3listers.EnvoyFilterLister
 	envoyFiltersSynced   cache.InformerSynced
 
 	dockerConfigJSON []byte
@@ -115,13 +108,11 @@ type Controller struct {
 func NewController(
 	kubeclientset kubernetes.Interface,
 	kubeflowclientset clientset.Interface,
-	istioclientset istio.Interface,
 	podDefaultInformer v1alpha1informers.PodDefaultInformer,
 	secretInformer v1informers.SecretInformer,
 	serviceAccountInformer v1informers.ServiceAccountInformer,
 	roleBindingInformer rbacv1informers.RoleBindingInformer,
 	profileInformer informers.ProfileInformer,
-	envoyFiltersInformer istionetworkingv1alpha3informers.EnvoyFilterInformer,
 	dockerConfigJSON []byte,
 	vaultConfigurer VaultConfigurer) *Controller {
 
@@ -138,7 +129,6 @@ func NewController(
 	controller := &Controller{
 		kubeclientset:        kubeclientset,
 		kubeflowclientset:    kubeflowclientset,
-		istioclientset:       istioclientset,
 		podDefaultsLister:    podDefaultInformer.Lister(),
 		podDefaultsSynced:    podDefaultInformer.Informer().HasSynced,
 		secretsLister:        secretInformer.Lister(),
@@ -149,8 +139,6 @@ func NewController(
 		roleBindingSynced:    roleBindingInformer.Informer().HasSynced,
 		profilesLister:       profileInformer.Lister(),
 		profilesSynced:       profileInformer.Informer().HasSynced,
-		envoyFiltersLister:   envoyFiltersInformer.Lister(),
-		envoyFiltersSynced:   envoyFiltersInformer.Informer().HasSynced,
 		dockerConfigJSON:     dockerConfigJSON,
 		vaultConfigurer:      vaultConfigurer,
 		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Profiles"),
@@ -243,27 +231,6 @@ func NewController(
 			if newPD.ResourceVersion == oldPD.ResourceVersion {
 				// Periodic resync will send update events for all known RoleBinding.
 				// Two different versions of the same RoleBinding will always have different RVs.
-				return
-			}
-			controller.handleObject(new)
-		},
-		DeleteFunc: controller.handleObject,
-	})
-
-	// Set up an event handler for when EnvoyFilter resources change. This
-	// handler will lookup the owner of the given EnvoyFilter, and if it is
-	// owned by a Profile resource will enqueue that Profile resource for
-	// processing. This way, we don't need to implement custom logic for
-	// handling ServiceAccount resources. More info on this pattern:
-	// https://github.com/kubernetes/community/blob/8cafef897a22026d42f5e5bb3f104febe7e29830/contributors/devel/controllers.md
-	envoyFiltersInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
-		UpdateFunc: func(old, new interface{}) {
-			newPD := new.(*istionetworkingv1alpha3.EnvoyFilter)
-			oldPD := old.(*istionetworkingv1alpha3.EnvoyFilter)
-			if newPD.ResourceVersion == oldPD.ResourceVersion {
-				// Periodic resync will send update events for all known EnvoyFilter.
-				// Two different versions of the same EnvoyFilter will always have different RVs.
 				return
 			}
 			controller.handleObject(new)
@@ -542,13 +509,6 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Configure argo role binding
 	err = c.doArgoRoleBinding(profile)
-
-	if err != nil {
-		return err
-	}
-
-	// Configure pipelines-header EnvoyFilter
-	err = c.doPipelinesIstioEnvoyFilter(profile)
 
 	if err != nil {
 		return err

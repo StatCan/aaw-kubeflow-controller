@@ -27,9 +27,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 
-	istio "istio.io/client-go/pkg/clientset/versioned"
-	istioinformers "istio.io/client-go/pkg/informers/externalversions"
-
 	kubeinformers "k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
 
@@ -87,14 +84,8 @@ func main() {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
-	istioClient, err := istio.NewForConfig(cfg)
-	if err != nil {
-		klog.Fatalf("error building istio client: %v", err)
-	}
-
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Minute*15)
 	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, time.Minute*15)
-	istioInformerFactory := istioinformers.NewSharedInformerFactory(istioClient, time.Minute*15)
 
 	// Vault
 	vc, err := vault.NewClient(&vault.Config{
@@ -113,13 +104,11 @@ func main() {
 
 	controller := NewController(kubeClient,
 		kubeflowClient,
-		istioClient,
 		kubeflowInformerFactory.Kubeflow().V1alpha1().PodDefaults(),
 		kubeInformerFactory.Core().V1().Secrets(),
 		kubeInformerFactory.Core().V1().ServiceAccounts(),
 		kubeInformerFactory.Rbac().V1().RoleBindings(),
 		kubeflowInformerFactory.Kubeflow().V1().Profiles(),
-		istioInformerFactory.Networking().V1alpha3().EnvoyFilters(),
 		[]byte(imagePullSecret),
 		vaultConfigurer)
 
@@ -127,7 +116,6 @@ func main() {
 	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
 	kubeInformerFactory.Start(stopCh)
 	kubeflowInformerFactory.Start(stopCh)
-	istioInformerFactory.Start(stopCh)
 
 	if err = controller.Run(2, stopCh); err != nil {
 		klog.Fatalf("Error running controller: %s", err.Error())
