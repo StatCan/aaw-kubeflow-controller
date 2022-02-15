@@ -5,6 +5,7 @@ import (
 
 	kubeflowv1 "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller/v1"
 	kubeflowv1alpha1 "github.com/StatCan/kubeflow-controller/pkg/apis/kubeflowcontroller/v1alpha1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -46,6 +47,57 @@ func init() {
 				},
 				Annotations: map[string]string{
 					"data.statcan.gc.ca/inject-boathouse": "true",
+				},
+			},
+		}
+	})
+	RegisterPodDefault("access-ml-pipeline", func(profile *kubeflowv1.Profile) *kubeflowv1alpha1.PodDefault {
+		var expirationSeconds = int64(7200)
+		return &kubeflowv1alpha1.PodDefault{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "access-ml-pipeline",
+				Namespace: profile.Name,
+				OwnerReferences: []metav1.OwnerReference{
+					*metav1.NewControllerRef(profile, kubeflowv1.SchemeGroupVersion.WithKind("Profile")),
+				},
+			},
+			Spec: kubeflowv1alpha1.PodDefaultSpec{
+				Desc: "Allow access to Kubeflow Pipelines",
+				Selector: metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"access-ml-pipeline": "true",
+					},
+				},
+				Volumes: []v1.Volume{
+					{
+						Name: "volume-kf-pipeline-token",
+						VolumeSource: v1.VolumeSource{
+							Projected: &v1.ProjectedVolumeSource{
+								Sources: []v1.VolumeProjection{
+									{
+										ServiceAccountToken: &v1.ServiceAccountTokenProjection{
+											Path:              "token",
+											ExpirationSeconds: &expirationSeconds,
+											Audience:          "pipelines.kubeflow.org",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				VolumeMounts: []v1.VolumeMount{
+					{
+						MountPath: "/var/run/secrets/kubeflow/pipelines",
+						Name:      "volume-kf-pipeline-token",
+						ReadOnly:  true,
+					},
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "KF_PIPELINES_SA_TOKEN_PATH",
+						Value: "/var/run/secrets/kubeflow/pipelines/token",
+					},
 				},
 			},
 		}

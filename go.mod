@@ -10,6 +10,7 @@ require (
 	github.com/hashicorp/vault/api v1.0.4
 	github.com/minio/minio-go v6.0.14+incompatible // indirect
 	github.com/minio/minio-go/v7 v7.0.5 // indirect
+	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
 	istio.io/api v0.0.0-20201217173512-1f62aaeb5ee3
 	istio.io/client-go v1.8.1
 	k8s.io/api v0.0.0-20200403220253-fa879b399cd0
