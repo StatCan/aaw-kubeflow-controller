@@ -38,7 +38,7 @@ func init() {
 				},
 			},
 			Spec: kubeflowv1alpha1.PodDefaultSpec{
-				Desc: "Mount MinIO storage into the minio/ folder",
+				Desc: "Mount MinIO storage to ~/minio (experimental) / Monter le stockage MinIO sur ~/minio (expérimental)",
 				Selector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"minio-mounts": "true",
