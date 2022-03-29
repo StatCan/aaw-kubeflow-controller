@@ -5,13 +5,14 @@ module github.com/StatCan/kubeflow-controller
 go 1.13
 
 require (
-	github.com/go-ini/ini v1.62.0 // indirect
-	github.com/gogo/protobuf v1.3.1
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/protobuf v1.3.5 // indirect
 	github.com/hashicorp/vault/api v1.0.4
-	github.com/minio/minio-go v6.0.14+incompatible // indirect
-	github.com/minio/minio-go/v7 v7.0.5 // indirect
-	istio.io/api v0.0.0-20201217173512-1f62aaeb5ee3
-	istio.io/client-go v1.8.1
+	github.com/json-iterator/go v1.1.10 // indirect
+	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899 // indirect
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
+	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
+	golang.org/x/text v0.3.3 // indirect
 	k8s.io/api v0.0.0-20200403220253-fa879b399cd0
 	k8s.io/apimachinery v0.18.1
 	k8s.io/client-go v0.18.1
